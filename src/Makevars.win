@@ -1,0 +1,6 @@
+CXX_STD = CXX17
+PKG_CPPFLAGS = -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT
+PKG_CFLAGS = $(SHLIB_OPENMP_CFLAGS)
+PKG_CXXFLAGS =
+PKG_LIBS = $(SHLIB_OPENMP_CFLAGS)
+OBJECTS = cpp11.o bindings.o model.o onnx_parser.o tree_ensemble.o nanopb/pb_common.o nanopb/pb_decode.o nanopb/pb_encode.o serializers/xgb_serializer.o

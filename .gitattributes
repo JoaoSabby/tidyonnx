@@ -1,0 +1,4 @@
+* text=auto eol=lf
+*.onnx -text
+*.tar.gz -text
+*.zip -text

@@ -1,0 +1,8 @@
+bibentry(
+  bibtype = "Manual",
+  title = "tidyonnx: Native ONNX Tree Ensemble Serialization and Inference",
+  author = person("Joao B. G.", "de Brito"),
+  year = "2026",
+  note = paste("R package version", meta$Version),
+  url = "https://github.com/JoaoSabby/tidyonnx"
+)

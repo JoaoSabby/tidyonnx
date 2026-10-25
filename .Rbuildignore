@@ -1,0 +1,10 @@
+^\.git$
+^\.gitignore$
+^\.github$
+^tools$
+^validation-results$
+^LICENSE\.md$
+^ARCHITECTURE\.md$
+^VALIDATION\.md$
+(^|/)src/.*\.(o|so|dll|a)$
+^\.gitattributes$
