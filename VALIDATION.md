@@ -7,10 +7,10 @@ Validated on 2026-10-24 (America/Sao_Paulo).
 - R CMD build completed successfully.
 - R CMD check --no-manual --no-build-vignettes: **Status: OK**,
   zero errors, zero warnings, zero notes.
-- Full test suite: **144 expectations passed**, zero failures, errors, warnings,
+- Full test suite: **148 expectations passed**, zero failures, errors, warnings,
   or skips.
 - A separate source installation with OpenMP disabled passed the same
-  **144 expectations** and reported OpenMP unavailable.
+  **148 expectations** and reported OpenMP unavailable.
 - A fresh R process loaded an ONNX model and predicted without loading
   the xgboost namespace.
 - Source archive contains no object files or compiled libraries.
@@ -18,6 +18,13 @@ Validated on 2026-10-24 (America/Sao_Paulo).
 Environment: Windows 10 x64, R 4.6.0, GCC/G++ 14.3.0, cpp11 0.5.5,
 S7 0.2.2, and XGBoost 3.2.1.1. C source compilation used GNU C17;
 the bridge used C++17. OpenMP-enabled and disabled builds were both executed.
+
+## Cross-platform CI
+
+GitHub Actions passed on Windows x64, Ubuntu Linux, and macOS ARM64.
+The verified code commit is d1f69e6f25812a0adab6f0fa22136114b34dc10e.
+[Successful workflow run](https://github.com/JoaoSabby/tidyonnx/actions/runs/40150212389).
+Machine-readable job results are in tools/evidence/github-actions.json.
 
 ## Independent ONNX Runtime C API comparison
 
@@ -59,6 +66,4 @@ configured worker limits.
 The thread tests establish deterministic output under configured limits;
 they do not instrument observed worker counts or prove a speedup.
 No Intel oneAPI, AVX-512, GPU, large-model performance benchmark, exhaustive
-fuzzing, or general ONNX conformance result is claimed. Linux and macOS checks
-are configured in GitHub Actions and should be assessed from their actual run
-results. No CRAN submission has been made.
+fuzzing, or general ONNX conformance result is claimed. No CRAN submission has been made.

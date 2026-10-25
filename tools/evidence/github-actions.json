@@ -1,0 +1,25 @@
+{
+  "commit": "d1f69e6f25812a0adab6f0fa22136114b34dc10e",
+  "run_id": 40150212389,
+  "url": "https://github.com/JoaoSabby/tidyonnx/actions/runs/40150212389",
+  "jobs": [
+    {
+      "id": 121040001031,
+      "name": "check (windows-latest)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 121040001208,
+      "name": "check (ubuntu-latest)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 121040001298,
+      "name": "check (macos-latest)",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ]
+}
