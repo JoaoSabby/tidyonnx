@@ -18,5 +18,6 @@ onnx_save <- function(model, file, feature_names = NULL, params = list()) {
   } else if (!file.rename(temporary, file)) {
     stop("Cannot create the destination file: ", file, call. = FALSE)
   }
-  invisible(file)
+  # Resolve symlinks and Windows short names only after the destination exists.
+  invisible(normalizePath(file, winslash = "/", mustWork = TRUE))
 }

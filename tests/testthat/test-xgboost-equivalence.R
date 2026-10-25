@@ -82,3 +82,24 @@ test_that("two-class softmax preserves probabilities after symmetric score conve
     expect_equal(converted@task_type, "classification_multiclass")
   }
 })
+
+test_that("UTF-8 feature metadata survives conversion under the C locale", {
+  skip_if_not_installed("xgboost")
+  previous_locale <- Sys.getlocale("LC_CTYPE")
+  on.exit(Sys.setlocale("LC_CTYPE", previous_locale), add = TRUE)
+  Sys.setlocale("LC_CTYPE", "C")
+  set.seed(100)
+  x <- matrix(rnorm(200), ncol = 2)
+  features <- c("chuva_\u00e1", "temperatura_\u00e7")
+  colnames(x) <- features
+  data <- xgboost::xgb.DMatrix(x, label = as.numeric(rowSums(x) > 0))
+  fit <- xgboost::xgb.train(list(objective = "binary:logistic", nthread = 1L,
+    base_score = 0.3, max_depth = 2L), data, nrounds = 4L, verbose = 0L)
+  labels <- c("aus\u00eancia", "presen\u00e7a")
+  converted <- onnx_convert(fit, params = list(class_levels = labels))
+  expect_identical(converted@feature_names, features)
+  expect_identical(converted@class_levels, labels)
+  prediction <- onnx_predict(converted, as.data.frame(x))
+  expect_identical(names(prediction), paste0(".pred_", labels))
+  expect_equal(prediction[[2L]], as.numeric(predict(fit, data)), tolerance = 3e-6)
+})

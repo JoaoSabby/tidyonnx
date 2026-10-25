@@ -15,10 +15,10 @@ onnx_convert <- function(model, feature_names = NULL, params = list()) {
     stop("Install xgboost to convert xgb.Booster models.", call. = FALSE)
   }
   # Stable JSON preserves tree-to-class assignments, vector intercepts, and feature counts.
-  document <- jsonlite::fromJSON(
-    rawToChar(xgboost::xgb.save.raw(model, raw_format = "json")),
-    simplifyVector = FALSE
-  )
+  document_text <- rawToChar(xgboost::xgb.save.raw(model, raw_format = "json"))
+  # XGBoost JSON is UTF-8; mark raw bytes before jsonlite can apply locale conversion.
+  Encoding(document_text) <- "UTF-8"
+  document <- jsonlite::fromJSON(document_text, simplifyVector = FALSE)
   learner <- document$learner
   num_features <- as.integer(learner$learner_model_param$num_feature)
   stored_names <- unlist(learner$feature_names, use.names = FALSE)
