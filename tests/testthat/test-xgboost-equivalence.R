@@ -36,8 +36,8 @@ test_that("feature order and human-readable class labels survive round trips", {
   expect_equal(onnx_predict(model, frame), onnx_predict(model, fixture$x))
   expect_equal(onnx_predict(model, fixture$x[, 4:1]), onnx_predict(model, fixture$x))
   expect_named(onnx_predict(model, fixture$x), c(".pred_absence", ".pred_presence"))
-  renamed <- onnx_convert(fixture$model, feature_names = paste0("x", 1:4))
-  colnames(frame) <- rev(paste0("x", 1:4))
+  renamed <- onnx_convert(fixture$model, feature_names = str_c("x", 1:4))
+  colnames(frame) <- rev(str_c("x", 1:4))
   expect_equal(unname(as.matrix(onnx_predict(renamed, frame))),
     unname(as.matrix(onnx_predict(model, fixture$x))))
   expect_error(onnx_convert(fixture$model, feature_names = "wrong"), "feature_names")
@@ -47,8 +47,8 @@ test_that("automatically estimated scalar or vector base scores are supported", 
   skip_if_not_installed("xgboost")
   set.seed(19)
   x <- matrix(rnorm(400), ncol = 4)
-  d <- xgboost::xgb.DMatrix(x, label = rep(c(0, 1, 2, 0, 0), 20))
-  model <- xgboost::xgb.train(list(objective = "multi:softprob", num_class = 3L,
+  d <- xgb.DMatrix(x, label = rep(c(0, 1, 2, 0, 0), 20))
+  model <- xgb.train(list(objective = "multi:softprob", num_class = 3L,
     max_depth = 2L, nthread = 1L), d, nrounds = 6L, verbose = 0L)
   expect_equal(as.numeric(onnx_predict(onnx_convert(model), x, "raw")),
     as.numeric(predict(model, d)), tolerance = 3e-6)
@@ -57,8 +57,8 @@ test_that("automatically estimated scalar or vector base scores are supported", 
 test_that("all-positive binary trees have valid portable logistic scores", {
   skip_if_not_installed("xgboost")
   x <- matrix(seq_len(60), ncol = 1)
-  d <- xgboost::xgb.DMatrix(x, label = rep(1, 60))
-  model <- xgboost::xgb.train(list(objective = "binary:logistic", base_score = 0.2,
+  d <- xgb.DMatrix(x, label = rep(1, 60))
+  model <- xgb.train(list(objective = "binary:logistic", base_score = 0.2,
     nthread = 1L, max_depth = 1L), d, nrounds = 3L, verbose = 0L)
   converted <- onnx_convert(model)
   expect_equal(onnx_predict(converted, x, "numeric")$.pred,
@@ -70,9 +70,9 @@ test_that("two-class softmax preserves probabilities after symmetric score conve
   skip_if_not_installed("xgboost")
   set.seed(73)
   x <- matrix(rnorm(500), ncol = 5)
-  d <- xgboost::xgb.DMatrix(x, label = as.numeric(rowSums(x) > 0))
+  d <- xgb.DMatrix(x, label = as.numeric(rowSums(x) > 0))
   for (objective in c("multi:softprob", "multi:softmax")) {
-    model <- xgboost::xgb.train(list(objective = objective, num_class = 2L,
+    model <- xgb.train(list(objective = objective, num_class = 2L,
       max_depth = 3L, nthread = 1L, base_score = 0.3), d, nrounds = 8L, verbose = 0L)
     converted <- onnx_convert(model)
     raw <- onnx_predict(converted, x, "raw")
@@ -92,14 +92,35 @@ test_that("UTF-8 feature metadata survives conversion under the C locale", {
   x <- matrix(rnorm(200), ncol = 2)
   features <- c("chuva_\u00e1", "temperatura_\u00e7")
   colnames(x) <- features
-  data <- xgboost::xgb.DMatrix(x, label = as.numeric(rowSums(x) > 0))
-  fit <- xgboost::xgb.train(list(objective = "binary:logistic", nthread = 1L,
+  data <- xgb.DMatrix(x, label = as.numeric(rowSums(x) > 0))
+  fit <- xgb.train(list(objective = "binary:logistic", nthread = 1L,
     base_score = 0.3, max_depth = 2L), data, nrounds = 4L, verbose = 0L)
   labels <- c("aus\u00eancia", "presen\u00e7a")
   converted <- onnx_convert(fit, params = list(class_levels = labels))
   expect_identical(converted@feature_names, features)
   expect_identical(converted@class_levels, labels)
   prediction <- onnx_predict(converted, as.data.frame(x))
-  expect_identical(names(prediction), paste0(".pred_", labels))
+  expect_identical(names(prediction), str_c(".pred_", labels))
   expect_equal(prediction[[2L]], as.numeric(predict(fit, data)), tolerance = 3e-6)
+})
+
+test_that("early-stopped conversions honor the saved best boosting iteration", {
+  skip_if_not_installed("xgboost")
+  set.seed(91)
+  predictorData <- matrix(rnorm(200), ncol = 2)
+  trainMatrix <- xgb.DMatrix(predictorData, label = rep(c(0, 1), 50))
+  fittedModel <- xgb.train(
+    list(objective = "binary:logistic", eval_metric = "error", nthread = 1,
+         max_depth = 2, eta = 0.01),
+    trainMatrix, nrounds = 12, evals = list(validation = trainMatrix),
+    early_stopping_rounds = 2, verbose = 0
+  )
+  convertedModel <- onnx_convert(fittedModel)
+  allTreesModel <- onnx_convert(fittedModel, params = list(iteration_range = "all"))
+  expect_equal(onnx_predict(convertedModel, predictorData, "numeric")$.pred,
+               as.numeric(predict(fittedModel, trainMatrix)), tolerance = 3e-6)
+  expect_equal(onnx_predict(allTreesModel, predictorData, "numeric")$.pred,
+               as.numeric(predict(fittedModel, trainMatrix, iterationrange = "all")),
+               tolerance = 3e-6)
+  expect_lt(onnx_inspect(convertedModel)$model$trees, onnx_inspect(allTreesModel)$model$trees)
 })

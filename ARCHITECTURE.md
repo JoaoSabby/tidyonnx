@@ -1,99 +1,105 @@
-# Architecture decisions
+# Architecture
 
-## Conflicting attachment requirements
+## Entry points and prediction contracts
 
-The supplied specification simultaneously requires an ONNX Runtime/libprotobuf
-implementation and a Route A implementation with no external inference or
-protobuf libraries. These cannot be the same default execution engine.
-Version 0.1.0 follows the explicit Route A mandate. The R interface remains S7,
-the native bridge remains exclusively cpp11, and the evaluator remains pure C.
-There is no OrtEnv singleton because this engine has no OrtEnv resource.
-A session is an immutable validated tree representation owned by
-`cpp11::external_pointer<Session>`.
+`onnx_convert()` is an S3 generic with methods for XGBoost engines, parsnip fits,
+and workflows. Existing native S7 models and converted bundles can be passed
+through unchanged. Additional arguments and unsupported engine classes fail
+explicitly.
 
-Nanopb 0.4.9.1 is vendored with its license. It is a compiled C library, not a
-header-only library. Its bounded wire primitives encode/decode the required
-ONNX fields. `src/proto_generated/onnx.pb.h` is audited, manually maintained
-field-number metadata, not an automatically generated full ONNX descriptor.
-The complete upstream ONNX 1.17.0 schema is included for provenance. No
-misleading generated descriptor or unused schema compilation step is included.
+| Input | Converted representation | Prediction preparation |
+| --- | --- | --- |
+| `xgb.Booster` | Native S7 `onnx_model` | Numerical input alignment |
+| `model_fit` | `onnx_fit` bundle | Saved parsnip preprocessing |
+| `workflow` | `onnx_fit` bundle | Trained hardhat blueprint, then parsnip encoding |
 
-## Data flow
+A bundle retains a minimal parsnip prediction specification, its preprocessing,
+and optionally a trained workflow blueprint. The fitted engine, model tuning
+arguments, and training call are not retained as bundle components. Formula
+expressions can retain environments needed for prediction; recipe steps can
+retain their own fitted state. No universal memory-reduction ratio is promised.
 
-1. R exports a fitted XGBoost model using its stable JSON model API.
-2. jsonlite reads the model; C++'s XGBoost serializer extracts numerical trees,
-   tree assignments, objective, and intercept.
-3. Nanopb emits a standard binary ModelProto with ML opset 3 and standard opset
-   18 by default. Names and labels are stored as UTF-8 newline-delimited metadata;
-   names containing line breaks are rejected.
-4. The same bounded parser validates loaded bytes. C++ validates topology,
-   array lengths, identifier uniqueness, roots, reachability, finite weights,
-   feature bounds, and supported graph semantics before publishing a session.
-5. C receives immutable node/weight arrays and borrowed R column pointers.
-   It reads integer and double features directly, casts individual values to
-   float32 as XGBoost does, traverses trees, and writes column-major R output.
-   No full input matrix conversion or row-major copy is required.
-6. cpp11 finalizes the session. Embedded ONNX bytes and a shared cache environment
-   rehydrate external pointers after R serialization.
+Binary target mapping is derived from the fitted parsnip probability
+postprocessor using sentinel scores. This preserves the fitted prediction
+contract without depending on the internal representation of engine argument
+expressions. Outcome levels remain in their original order in formatted output.
+Workflow postprocessors are rejected because the converter does not export their
+semantics. A bundle has its own prediction class and does not pretend to support
+all extraction, tuning, or refitting methods of an unconverted workflow.
 
-## Binary classifier portability
+## Conversion and native ownership
 
-The attachment's single class-0 weight encoding has an ONNX Runtime special
-case: positive-only binary weights can bypass the expected logistic conversion.
-Its handling of two class scores plus nonzero base_values is also ambiguous.
-The exported classifier therefore has two explicit class scores. Binary leaves
-write `[-weight, +weight]` and the constant intercept tree writes
-`[-logit(base_score), +logit(base_score)]`. LOGISTIC then produces complementary
-probabilities in independent runtimes. The same intercept-stump approach is used
-for multiclass scores. Regression uses standard base_values. Scalar logistic regression uses an explicit
-standard-domain Sigmoid after an untransformed regressor: ONNX Runtime 1.20.1
-does not apply TreeEnsembleRegressor LOGISTIC in its single-target fast path.
-This is a second correction to the attachment demonstrated by independent execution.
-Two-class softmax models use symmetric half-difference scores to preserve both
-probabilities and the binary label decision in reference runtimes.
+XGBoost's stable model JSON is parsed once for ordinary conversion. A saved
+best iteration is honored by slicing through the public XGBoost API and reading
+the sliced model when necessary. An explicit `iteration_range = "all"` retains
+all stored trees. No source engine is modified.
 
-The constant intercept tree is visible in inspection: a converted classifier
-has one more ONNX tree than the source model. This intentional encoding
-preserves predictions without runtime-specific metadata interpretation.
+The C++ serializer reads numerical trees, tree-to-class assignments, supported
+objectives, scalar or vector intercepts, and feature counts. Vendored Nanopb
+0.4.9.1 encodes a standard binary ModelProto. ONNX ML opset three is used; the
+standard opset and IR versions are bounded conversion settings. Names and labels
+use UTF-8 newline-delimited metadata and therefore reject line breaks.
 
-## Performance and numerical contract
+The model constructor decodes and validates the resulting graph once before
+publishing a session. Native vectors own all graph storage through RAII.
+`cpp11::external_pointer` finalizes the session. The R object retains portable
+bytes by default and a shared cache for lazy restoration after serialization.
+File-backed objects verify their saved checksum before restoration. The checksum
+is an accidental-change check, not an authenticity mechanism.
 
-Nodes and weights occupy contiguous vectors. Input handoff borrows existing R
-column buffers; R ALTREP data may materialize before worker threads start.
-Metadata, pointer tables, output, and per-thread score workspace still allocate.
-There are no R API calls, allocations, or C++ exceptions inside the worker region.
-OpenMP distributes independent rows with an explicit per-call worker limit.
-Tree accumulation order remains fixed. Traversal is branch-dependent and is
-not claimed to achieve vectorized tree walking.
+## Graph validation
 
-Float32 arithmetic is preserved. Small differences in transcendental functions
-or base-score accumulation order mean bitwise equality with every external
-runtime is not promised. Validation uses explicit numerical tolerances.
-No fast-math or host-only instruction flags are injected because they can break
-NaN routing or portability. R's configured compiler, optimization, and OpenMP
-flags determine the build. Intel compiler users may select an appropriate
-toolchain through R's standard user Makevars configuration; Intel/AVX-512
-performance is not claimed without a measured production run.
+The bounded wire parser validates message wire types and integer bounds before
+nested decoding. Packed and unpacked repeated attributes are supported. Signed
+integer class labels preserve their signed values; structural identifiers remain
+nonnegative. Attribute type declarations must agree with each specific operator
+attribute. Classifier and regressor attributes cannot be mixed.
 
-## Extensibility and deliberately bounded support
+Before inference, the graph validator checks topology, child references,
+identifier uniqueness, array lengths, roots, reachability, feature bounds,
+finite thresholds and weights, graph IO schemas, output labels, and supported
+aggregation and activation semantics. Traversal is iterative for deep trees.
+Unsupported preprocessing operators, tensor attributes, initializers, and
+single-score binary encodings fail before a session can be used.
 
-Serializer modules implement an abstract C++ Serializer interface and register
-in the bridge registry. Adding an adapter does not require editing the C
-inference core. Only XGBoost is registered in v1; lm, glm, randomForest, and
-LightGBM are future adapters, not aliases with partial conversions.
+## Portable classifier semantics
 
-The loader supports a documented subset of ONNX-ML, plus a standard Sigmoid
-directly after a regression ensemble. It rejects unsupported
-operators, attribute encodings, graph pipelines, aggregation modes, and
-single-score binary encodings. It does not claim general ONNX compatibility.
-The engine is CPU-only. Inter-op concurrency is one; tuning values for GPU,
-float64 serialization, and unsupported graph optimization levels fail explicitly.
+Converted binary logistic leaves encode two symmetric class scores, followed by
+LOGISTIC. A constant intercept tree avoids ambiguous binary `base_values`
+handling in reference implementations. Multiclass graphs also use a constant
+intercept tree. Two-class softmax uses symmetric half-difference scores.
+Logistic regression adds an explicit standard-domain Sigmoid after an
+untransformed single-target regressor.
+
+The additional intercept tree is visible in inspection. External classifiers
+select the largest class score. Converted binary logistic models preserve the
+positive-class decision at a probability of 0.5.
+
+## Inference and persistence
+
+Plain integer and double R column buffers are borrowed by the native bridge.
+ALTREP materializes on the main R thread before worker access. C traversal casts
+individual values to float32, follows stored missing directions, and accumulates
+trees in a fixed order. Predictions use column-major output buffers.
+
+No R API, exceptions, dynamic allocation, or global OpenMP changes occur in the
+worker region. Physical-core detection is cached. The requested worker limit is
+bounded to 1024 and further limited by batch size. Builds without OpenMP remain
+serial. Output and per-worker score buffers still allocate.
+
+Graph writes are staged in the destination directory. Atomic replacement is
+used where available. A platform fallback moves the original to a backup before
+publishing and restores it on failure. R preprocessing cannot be written into a
+tree-only ONNX graph; bundles therefore use RDS and are rejected by `onnx_save()`.
 
 ## Sources
 
+- [ONNX intermediate representation](https://onnx.ai/onnx/repo-docs/IR.html)
 - [ONNX 1.17 schema](https://github.com/onnx/onnx/blob/v1.17.0/onnx/onnx-ml.proto3)
-- [ONNX-ML operator definitions](https://github.com/onnx/onnx/blob/v1.17.0/onnx/defs/traditionalml/defs.cc)
-- [ONNX Runtime classifier aggregation](https://github.com/microsoft/onnxruntime/blob/v1.20.1/onnxruntime/core/providers/cpu/ml/tree_ensemble_aggregator.h)
-- [ONNX Runtime score transforms](https://github.com/microsoft/onnxruntime/blob/v1.20.1/onnxruntime/core/providers/cpu/ml/ml_common.h)
+- [ONNX-ML operators](https://onnx.ai/onnx/operators/)
 - [XGBoost model IO](https://xgboost.readthedocs.io/en/stable/tutorials/saving_model.html)
+- [Hardhat forge](https://hardhat.tidymodels.org/reference/forge.html)
+- [Parsnip prediction](https://parsnip.tidymodels.org/reference/predict.model_fit.html)
+- [Workflow prediction](https://workflows.tidymodels.org/reference/predict-workflow.html)
+- [cpp11 ownership](https://cpp11.r-lib.org/)
 - [Nanopb 0.4.9.1](https://github.com/nanopb/nanopb/tree/0.4.9.1)

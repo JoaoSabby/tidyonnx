@@ -19,22 +19,22 @@ test_that("unsupported tuning is rejected explicitly", {
       list(inter_op_threads = 2), list(graph_opt_level = "extended"),
       list(embed_raw_bytes = 1), list(target_opset = 17),
       list(class_levels = c("same", "same")), list(1), c(a = 1))) {
-    expect_error(tidyonnx:::validate_onnx_params(params))
+    expect_error(validate_onnx_params(params))
   }
-  expect_error(tidyonnx:::validate_onnx_params(structure(list(1, 2), names = c("ir_version", "ir_version"))))
+  expect_error(validate_onnx_params(structure(list(1, 2), names = c("ir_version", "ir_version"))))
 })
 
 test_that("malformed protobuf and truncated models never publish a session", {
   model <- fixture_model()
   for (bytes in list(raw(), as.raw(c(0x3a, 0xff, 0xff)), as.raw(c(0, 0)),
       as.raw(c(0x08, 0x80)), as.raw(rep(0xff, 20)))) {
-    expect_error(tidyonnx:::cpp_open_model(bytes))
+    expect_error(cpp_open_model(bytes))
   }
   for (size in unique(as.integer(seq(1, length(model@raw_bytes) - 1, length.out = 25)))) {
-    expect_error(tidyonnx:::cpp_open_model(model@raw_bytes[seq_len(size)]))
+    expect_error(cpp_open_model(model@raw_bytes[seq_len(size)]))
   }
-  expect_false(tidyonnx:::cpp_session_alive(NULL))
-  expect_error(tidyonnx:::cpp_model_info(NULL), "session")
+  expect_false(cpp_session_alive(NULL))
+  expect_error(cpp_model_info(NULL), "session")
 })
 
 test_that("model and file contracts are validated", {

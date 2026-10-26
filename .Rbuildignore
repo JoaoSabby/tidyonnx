@@ -8,3 +8,5 @@
 ^VALIDATION\.md$
 (^|/)src/.*\.(o|so|dll|a)$
 ^\.gitattributes$
+^REVIEW\.md$
+^src/symbols[.]rds$

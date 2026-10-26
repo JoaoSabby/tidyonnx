@@ -1,6 +1,7 @@
 # Independent reference validation; this script is excluded from source-package builds.
 library(tidyonnx)
 library(xgboost)
+library(stringr)
 
 arguments <- commandArgs(trailingOnly = TRUE)
 if (length(arguments) != 3L) {
@@ -47,8 +48,8 @@ for (index in seq_len(nrow(scenarios))) {
   if (!is.na(scenario$base)) params$base_score <- scenario$base
   if (multiclass) params$num_class <- scenario$num_classes
   fit <- xgb.train(params, data, nrounds = 25L, verbose = 0L)
-  model_file <- file.path(output_directory, paste0("scenario-", index, ".onnx"))
-  output_file <- file.path(output_directory, paste0("scenario-", index, "-ort.bin"))
+  model_file <- file.path(output_directory, str_c("scenario-", index, ".onnx"))
+  output_file <- file.path(output_directory, str_c("scenario-", index, "-ort.bin"))
   onnx_save(fit, model_file)
   native <- onnx_predict(model_file, x, type = "raw", params = list(intra_op_threads = 4L))
   native_matrix <- if (is.matrix(native)) native else matrix(native, ncol = 1L)

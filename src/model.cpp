@@ -2,6 +2,7 @@
 #include "model.h"
 #include <set>
 #include <sstream>
+#include <cstring>
 
 namespace tidyonnx {
 namespace {
@@ -24,15 +25,30 @@ int64_t integer(const OnnxField& field) {
   require(field.integer <= static_cast<uint64_t>(INT64_MAX), "Unsupported negative ONNX identifier.");
   return static_cast<int64_t>(field.integer);
 }
+int integer32(const OnnxField& field) {
+  int64_t value = integer(field);
+  require(value <= INT_MAX, "ONNX integer exceeds the supported range.");
+  return static_cast<int>(value);
+}
+int64_t signed_integer(uint64_t value) {
+  int64_t result;
+  std::memcpy(&result, &value, sizeof(result));
+  return result;
+}
+OnnxSpan message(const OnnxField& field) {
+  require(field.wire == 2, "Invalid ONNX message wire type.");
+  return field.bytes;
+}
 // Both packed and unpacked repeated fields are legal protobuf encodings.
 Attribute attribute(OnnxSpan span, std::string& name) {
   Attribute result;
   bool value_present = false;
   for (const auto& field : fields(span)) {
     if (field.tag == 1) name = text(field);
-    else if (field.tag == 20) result.type = static_cast<int>(integer(field));
+    else if (field.tag == 20) result.type = integer32(field);
     else if (field.tag == 3) {
-      result.integers.push_back(integer(field));
+      require(field.wire == 0, "Invalid ONNX integer wire type.");
+      result.integers.push_back(signed_integer(field.integer));
       value_present = true;
     } else if (field.tag == 4 || field.tag == 9) {
       result.strings.push_back(text(field));
@@ -40,7 +56,7 @@ Attribute attribute(OnnxSpan span, std::string& name) {
     } else if (field.tag == 7 || field.tag == 8) {
       value_present = true;
       if (field.tag == 7 && field.wire == 5) result.floats.push_back(field.floating);
-      else if (field.tag == 8 && field.wire == 0) result.integers.push_back(integer(field));
+      else if (field.tag == 8 && field.wire == 0) result.integers.push_back(signed_integer(field.integer));
       else {
         require(field.wire == 2, "Invalid packed ONNX attribute.");
         OnnxSpan packed = field.bytes;
@@ -51,9 +67,8 @@ Attribute attribute(OnnxSpan span, std::string& name) {
             result.floats.push_back(value);
           } else {
             uint64_t value;
-            require(tidyonnx_read_packed_integer(&packed, &value) &&
-              value <= static_cast<uint64_t>(INT64_MAX), "Invalid ONNX integer array.");
-            result.integers.push_back(static_cast<int64_t>(value));
+            require(tidyonnx_read_packed_integer(&packed, &value), "Invalid ONNX integer array.");
+            result.integers.push_back(signed_integer(value));
           }
         }
       }
@@ -92,15 +107,15 @@ int input_schema(OnnxSpan span, std::string& name) {
   for (const auto& field : fields(span)) {
     if (field.tag == 1) name = text(field);
     if (field.tag != 2) continue;
-    for (const auto& type : fields(field.bytes)) {
+    for (const auto& type : fields(message(field))) {
       require(type.tag == 1 && type.wire == 2, "Only dense tensor inputs are supported.");
-      for (const auto& tensor : fields(type.bytes)) {
-        if (tensor.tag == 1) element_type = static_cast<int>(integer(tensor));
+      for (const auto& tensor : fields(message(type))) {
+        if (tensor.tag == 1) element_type = integer32(tensor);
         if (tensor.tag != 2) continue;
-        for (const auto& dimension : fields(tensor.bytes)) {
+        for (const auto& dimension : fields(message(tensor))) {
           if (dimension.tag != 1) continue;
           int64_t value = -1;
-          for (const auto& item : fields(dimension.bytes)) {
+          for (const auto& item : fields(message(dimension))) {
             if (item.tag == 1) value = integer(item);
           }
           dimensions.push_back(value);
@@ -129,7 +144,7 @@ std::unique_ptr<Session> decode_model(const uint8_t* data, size_t size) {
   bool have_graph = false;
   std::set<std::string> domains;
   for (const auto& field : fields({data, size})) {
-    if (field.tag == ONNX_IR_VERSION) session->ir_version = static_cast<int>(integer(field));
+    if (field.tag == ONNX_IR_VERSION) session->ir_version = integer32(field);
     else if (field.tag == ONNX_PRODUCER_NAME) session->producer = text(field);
     else if (field.tag == ONNX_GRAPH) {
       require(field.wire == 2 && !have_graph, "Expected exactly one ONNX graph.");
@@ -138,9 +153,9 @@ std::unique_ptr<Session> decode_model(const uint8_t* data, size_t size) {
     } else if (field.tag == ONNX_OPSET_IMPORT) {
       std::string domain;
       int version = 0;
-      for (const auto& item : fields(field.bytes)) {
+      for (const auto& item : fields(message(field))) {
         if (item.tag == 1) domain = text(item);
-        if (item.tag == 2) version = static_cast<int>(integer(item));
+        if (item.tag == 2) version = integer32(item);
       }
       require(domains.insert(domain).second, "Duplicate ONNX opset domain.");
       if (domain.empty()) session->opset = version;
@@ -149,7 +164,7 @@ std::unique_ptr<Session> decode_model(const uint8_t* data, size_t size) {
     } else if (field.tag == ONNX_METADATA_PROPS) {
       std::string key;
       std::string value;
-      for (const auto& item : fields(field.bytes)) {
+      for (const auto& item : fields(message(field))) {
         if (item.tag == 1) key = text(item);
         if (item.tag == 2) value = text(item);
       }
@@ -164,19 +179,19 @@ std::unique_ptr<Session> decode_model(const uint8_t* data, size_t size) {
   std::vector<std::string> graph_outputs;
   std::vector<OnnxSpan> output_schemas;
   for (const auto& field : fields(graph)) {
-    if (field.tag == ONNX_GRAPH_NODE) graph_nodes.push_back(field.bytes);
-    else if (field.tag == ONNX_GRAPH_INPUT) inputs.push_back(field.bytes);
+    if (field.tag == ONNX_GRAPH_NODE) graph_nodes.push_back(message(field));
+    else if (field.tag == ONNX_GRAPH_INPUT) inputs.push_back(message(field));
     else if (field.tag == ONNX_GRAPH_OUTPUT) {
-      output_schemas.push_back(field.bytes);
+      output_schemas.push_back(message(field));
       std::string name;
-      for (const auto& item : fields(field.bytes)) if (item.tag == 1) name = text(item);
+      for (const auto& item : fields(message(field))) if (item.tag == 1) name = text(item);
       graph_outputs.push_back(name);
     } else if (field.tag == ONNX_GRAPH_INITIALIZER || field.tag == 15) {
       throw std::runtime_error("Initializer and sparse-initializer graphs are not supported.");
     }
   }
   require((graph_nodes.size() == 1 || graph_nodes.size() == 2) && inputs.size() == 1,
-    "Route A supports one TreeEnsemble node, optionally followed by Sigmoid, and one input.");
+    "Expected one TreeEnsemble node, optionally followed by Sigmoid, and one input.");
   int num_features = input_schema(inputs.front(), session->input_name);
   require(!session->input_name.empty(), "ONNX input name is empty.");
   std::map<std::string, Attribute> attributes;
@@ -190,7 +205,7 @@ std::unique_ptr<Session> decode_model(const uint8_t* data, size_t size) {
     else if (field.tag == ONNX_NODE_DOMAIN) domain = text(field);
     else if (field.tag == ONNX_NODE_ATTRIBUTE) {
       std::string name;
-      Attribute value = attribute(field.bytes, name);
+      Attribute value = attribute(message(field), name);
       require(attributes.emplace(name, std::move(value)).second, "Duplicate ONNX node attribute.");
     }
   }
@@ -231,6 +246,19 @@ std::unique_ptr<Session> decode_model(const uint8_t* data, size_t size) {
   };
   for (const auto& item : attributes) {
     require(allowed.count(item.first) != 0, "Unsupported ONNX attribute: " + item.first);
+    const auto& name = item.first;
+    int expected_type = (name == "n_targets") ? 2 :
+      (name == "post_transform" || name == "aggregate_function") ? 3 :
+      (name == "nodes_modes" || name == "classlabels_strings") ? 8 :
+      (name == "nodes_values" || name == "nodes_hitrates" || name == "base_values" ||
+       name == "class_weights" || name == "target_weights") ? 6 : 7;
+    require(item.second.type == expected_type, "Incorrect ONNX attribute type: " + name);
+    bool class_attribute = name.compare(0, 6, "class_") == 0 ||
+      name.compare(0, 12, "classlabels_") == 0;
+    bool regression_attribute = name.compare(0, 7, "target_") == 0 ||
+      name == "n_targets" || name == "aggregate_function";
+    require(classifier ? !regression_attribute : !class_attribute,
+      "ONNX attribute belongs to a different tree operator: " + name);
   }
   if (attributes.count("aggregate_function")) {
     require(get(attributes, "aggregate_function").strings == std::vector<std::string>{"SUM"},
@@ -274,15 +302,15 @@ std::unique_ptr<Session> decode_model(const uint8_t* data, size_t size) {
     std::vector<int64_t> dimensions;
     for (const auto& value : fields(output_schemas[output])) {
       if (value.tag != 2) continue;
-      for (const auto& type : fields(value.bytes)) {
+      for (const auto& type : fields(message(value))) {
         require(type.tag == 1 && type.wire == 2, "Only dense tensor outputs are supported.");
-        for (const auto& tensor : fields(type.bytes)) {
-          if (tensor.tag == 1) element_type = static_cast<int>(integer(tensor));
+        for (const auto& tensor : fields(message(type))) {
+          if (tensor.tag == 1) element_type = integer32(tensor);
           if (tensor.tag != 2) continue;
-          for (const auto& dimension : fields(tensor.bytes)) {
+          for (const auto& dimension : fields(message(tensor))) {
             if (dimension.tag != 1) continue;
             int64_t width = -1;
-            for (const auto& item : fields(dimension.bytes)) {
+            for (const auto& item : fields(message(dimension))) {
               if (item.tag == 1) width = integer(item);
             }
             dimensions.push_back(width);
@@ -326,6 +354,7 @@ std::unique_ptr<Session> decode_model(const uint8_t* data, size_t size) {
     "ONNX node attribute arrays have inconsistent lengths.");
   std::map<std::pair<int64_t, int64_t>, int> positions;
   for (size_t index = 0; index < count; ++index) {
+    require(tree_ids[index] >= 0 && node_ids[index] >= 0, "Negative ONNX tree/node identifier.");
     require(positions.emplace(std::make_pair(tree_ids[index], node_ids[index]),
       static_cast<int>(index)).second, "Duplicate tree/node identifier.");
   }
@@ -412,6 +441,8 @@ std::unique_ptr<Session> decode_model(const uint8_t* data, size_t size) {
     session->weights.insert(session->weights.end(), node_weights[index].begin(), node_weights[index].end());
   }
   if (metadata.count("tidyonnx.source_class")) session->source_class = metadata["tidyonnx.source_class"];
+  session->binary_threshold = classifier && session->num_targets == 2 &&
+    metadata["tidyonnx.objective"] == "binary:logistic";
   if (metadata.count("tidyonnx.task_type")) {
     const auto& task = metadata["tidyonnx.task_type"];
     require(task == session->task_type || (classifier && task == "classification_multiclass"),

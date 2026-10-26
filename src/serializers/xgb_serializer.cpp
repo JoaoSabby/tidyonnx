@@ -259,16 +259,7 @@ class XgboostSerializer final : public Serializer {
         split_conditions.size() == left.size() && default_left.size() == left.size() &&
         split_type.size() == left.size(), "Inconsistent XGBoost tree array lengths.");
       require(count <= static_cast<size_t>(INT_MAX), "XGBoost tree is too large.");
-      // Reserve one entry per stored node and visit only nodes reachable after pruning.
-      size_t capacity = tree_ids.size() + count;
-      tree_ids.reserve(capacity);
-      node_ids.reserve(capacity);
-      feature_ids.reserve(capacity);
-      true_ids.reserve(capacity);
-      false_ids.reserve(capacity);
-      missing.reserve(capacity);
-      thresholds.reserve(capacity);
-      modes.reserve(capacity);
+      // Geometric vector growth avoids reallocating every accumulated tree.
       std::vector<bool> visited(count, false);
       std::vector<int> pending{0};
       int target = integer_number(tree_info[tree_index]);
@@ -373,7 +364,7 @@ class XgboostSerializer final : public Serializer {
     ProtoWriter model;
     model.integer(ONNX_IR_VERSION, ir_version);
     model.string(ONNX_PRODUCER_NAME, "tidyonnx");
-    model.string(ONNX_PRODUCER_VERSION, "0.1.0");
+    model.string(ONNX_PRODUCER_VERSION, "0.1.1");
     model.message(ONNX_GRAPH, graph);
     ProtoWriter standard_opset;
     standard_opset.integer(2, opset);

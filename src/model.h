@@ -44,6 +44,7 @@ struct Session {
   int ir_version = 0;
   int opset = 0;
   int ml_opset = 0;
+  bool binary_threshold = false;
 };
 struct SerializedModel {
   std::vector<uint8_t> bytes;

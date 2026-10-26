@@ -1,21 +1,45 @@
 Package: tidyonnx
 Title: Native ONNX Tree Ensemble Serialization and Inference
-Version: 0.1.0
-Authors@R: person("Joao B. G.", "de Brito", email = "joao@sabby.com.br",
+Version: 0.1.1
+Authors@R: person("João B. G.", "de Brito", email = "joao@sabby.com.br",
     role = c("aut", "cre"))
 Description: Converts numerical XGBoost tree ensembles to the Open Neural
     Network Exchange format and evaluates supported ONNX tree graphs through
     a self-contained C engine. Provides S7 model objects, automatic session
     restoration, and predictable tibble predictions using a cpp11 bridge.
-    Includes Protocol Buffers sources for offline installation.
+    Integrates fitted parsnip models and modeling workflows through post-fit
+    conversion while retaining their prediction preprocessing. Includes Protocol
+    Buffers sources for offline installation.
 License: MIT + file LICENSE
 URL: https://github.com/JoaoSabby/tidyonnx
 BugReports: https://github.com/JoaoSabby/tidyonnx/issues
 Depends: R (>= 4.3.0)
-Imports: S7 (>= 0.2.0), tibble, jsonlite, parallel, stats
+Imports:
+    S7 (>= 0.2.0),
+    cli,
+    jsonlite,
+    parallel,
+    rlang,
+    stats,
+    stringr,
+    tibble,
+    tools
 LinkingTo: cpp11
-Suggests: testthat (>= 3.0.0), xgboost (>= 1.7.0)
+Suggests:
+    butcher,
+    data.table,
+    decor,
+    hardhat (>= 1.4.0),
+    modeldata,
+    parsnip (>= 1.3.0),
+    recipes,
+    roxygen2 (>= 7.3.0),
+    testthat (>= 3.0.0),
+    workflows (>= 1.2.0),
+    xgboost (>= 1.7.0)
 Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
 Encoding: UTF-8
 SystemRequirements: C17 (USE_C17), C++17; OpenMP (optional)
 NeedsCompilation: yes
+RoxygenNote: 7.3.1

@@ -28,8 +28,7 @@ cpp11::writable::raws cpp_serialize_model(cpp11::list learner,
   };
   auto model = serializers.at("xgb.Booster")->serialize(
     learner, features, levels, base_score, opset, ir_version);
-  // Validate the serialized graph before returning bytes to the R layer.
-  tidyonnx::decode_model(model.bytes.data(), model.bytes.size());
+  // The R constructor validates these bytes once when opening the session.
   cpp11::writable::raws result(model.bytes.size());
   std::memcpy(RAW(result), model.bytes.data(), model.bytes.size());
   return result;
@@ -63,6 +62,7 @@ cpp11::writable::list cpp_model_info(SEXP pointer) {
     "ml_opset"_nm = model->ml_opset,
     "source_class"_nm = model->source_class,
     "task_type"_nm = model->task_type,
+    "binary_threshold"_nm = model->binary_threshold,
     "label_type"_nm = model->label_type,
     "feature_names"_nm = r_strings(model->feature_names),
     "class_levels"_nm = r_strings(model->class_levels),
@@ -108,14 +108,18 @@ cpp11::sexp cpp_predict_model(SEXP pointer, SEXP data, cpp11::integers indices,
       const double* source = REAL(values) + offset;
       columns[column].data = source;
       for (int row = 0; row < rows; ++row) {
-        tidyonnx::require(!std::isinf(source[row]), "Infinite predictor values are not supported.");
+        tidyonnx::require(std::isnan(source[row]) ||
+          std::abs(source[row]) <= std::numeric_limits<float>::max(),
+          "Predictor values exceed the supported float32 range.");
       }
     } else columns[column].data = INTEGER(values) + offset;
   }
   size_t output_size = static_cast<size_t>(rows) * static_cast<size_t>(model->num_targets);
   tidyonnx::require(output_size <= static_cast<size_t>(R_XLEN_T_MAX), "Prediction output is too large.");
   cpp11::writable::doubles output(output_size);
-  int effective_threads = tidyonnx_has_openmp() ? std::min(threads, std::max(rows, 1)) : 1;
+  // Small batches avoid thread-startup overhead and oversized workspaces.
+  int batch_threads = std::max(1, rows / 256);
+  int effective_threads = tidyonnx_has_openmp() ? std::min(threads, batch_threads) : 1;
   std::vector<float> workspace(static_cast<size_t>(effective_threads) * model->num_targets);
   TidyOnnxEnsemble ensemble{
     model->nodes.data(), model->weights.data(), model->roots.data(),

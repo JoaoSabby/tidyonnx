@@ -1,6 +1,7 @@
 /* pb_decode.h: Functions to decode protocol buffers. Depends on pb_decode.c.
  * The main function is pb_decode. You also need an input stream, and the
- * field descriptions created by nanopb_generator.py.
+ * field descriptions created by the Nanopb descriptor generator.
+ * Local adjustment: generator reference generalized in documentation only.
  */
 
 #ifndef PB_DECODE_H_INCLUDED

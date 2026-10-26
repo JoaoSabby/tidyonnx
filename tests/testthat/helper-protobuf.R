@@ -1,4 +1,9 @@
 # Independent R wire helpers build external and malformed fixtures without the native encoder.
+#' @title Encode a test Protocol Buffers varint
+#' @description Nonnegative test identifiers are encoded independently from the native writer.
+#' @param value A nonnegative numeric scalar.
+#' @return A raw vector containing the varint.
+#' @keywords internal
 wire_varint <- function(value) {
   result <- raw()
   repeat {
@@ -9,10 +14,21 @@ wire_varint <- function(value) {
   }
 }
 
+#' @title Encode a length-delimited test field
+#' @description A field key and length prefix are attached to raw payload bytes.
+#' @param tag An integer field number.
+#' @param value A raw payload vector.
+#' @return A complete length-delimited wire field.
+#' @keywords internal
 wire_message <- function(tag, value) {
   c(wire_varint(tag * 8 + 2), wire_varint(length(value)), value)
 }
 
+#' @title Decode independent test wire fields
+#' @description Fixture fields are separated into decoded values and original byte sequences.
+#' @param bytes A valid serialized fixture byte vector.
+#' @return A list of tagged fields with original raw encodings.
+#' @keywords internal
 wire_fields <- function(bytes) {
   position <- 1L
   read_integer <- function() {
@@ -51,6 +67,12 @@ wire_fields <- function(bytes) {
   result
 }
 
+#' @title Modify a fixture tree operator
+#' @description The first graph node is edited while unrelated model fields are retained.
+#' @param bytes A valid fixture model byte vector.
+#' @param edit A callback transforming the decoded node-field list.
+#' @return A serialized model with the edited tree node.
+#' @keywords internal
 wire_edit_node <- function(bytes, edit) {
   model <- wire_fields(bytes)
   graph_index <- which(vapply(model, function(field) field$tag == 7, logical(1)))
@@ -62,6 +84,14 @@ wire_edit_node <- function(bytes, edit) {
   do.call(c, lapply(model, "[[", "raw"))
 }
 
+#' @title Modify an integer array in a fixture node
+#' @description The independent writer constructs packed or unpacked repeated integer fields.
+#' @param bytes A valid fixture model byte vector.
+#' @param name An integer-array attribute name.
+#' @param values Replacement nonnegative integer values.
+#' @param unpacked Logical; whether the values use unpacked encoding.
+#' @return A serialized model with the edited integer attribute.
+#' @keywords internal
 wire_edit_attribute <- function(bytes, name, values, unpacked = FALSE) {
   wire_edit_node(bytes, function(node) {
     for (index in seq_along(node)) {
@@ -76,6 +106,29 @@ wire_edit_attribute <- function(bytes, name, values, unpacked = FALSE) {
       })) else wire_message(8, do.call(c, lapply(values, wire_varint)))
       node[[index]]$raw <- wire_message(5,
         c(do.call(c, lapply(attribute, "[[", "raw")), payload))
+    }
+    node
+  })
+}
+
+#' @title Replace a scalar or repeated ONNX test attribute
+#' @description Construct independent wire payloads for graph-contract tests.
+#' @param bytes A serialized fixture graph.
+#' @param name The attribute name to replace.
+#' @param payload A complete encoded attribute-value field.
+#' @param type The declared ONNX AttributeProto type.
+#' @return Raw bytes containing the modified graph.
+#' @keywords internal
+WireReplaceAttribute <- function(bytes, name, payload, type){
+  wire_edit_node(bytes, function(node){
+    for(index in seq_along(node)){
+      if(node[[index]]$tag != 5) next
+      fields <- wire_fields(node[[index]]$value)
+      nameIndex <- which(vapply(fields, function(field) field$tag == 1, logical(1)))
+      if(rawToChar(fields[[nameIndex]]$value) != name) next
+      node[[index]]$raw <- wire_message(5, c(
+        wire_message(1, charToRaw(name)), wire_varint(20 * 8), wire_varint(type), payload
+      ))
     }
     node
   })

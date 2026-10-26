@@ -9,3 +9,4 @@
 *.tar.gz
 *.zip
 validation-results/
+src/symbols.rds

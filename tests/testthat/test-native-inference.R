@@ -18,7 +18,7 @@ test_that("matrix and data frame storage preserve integer missing values", {
   data <- matrix(c(0L, 1L, 2L, NA_integer_), ncol = 1)
   expected <- onnx_predict(model, data)
   expect_equal(onnx_predict(model, data.frame(temperature = data[, 1], extra = letters[1:4])), expected)
-  expect_equal(onnx_predict(model, tibble::tibble(temperature = data[, 1])), expected)
+  expect_equal(onnx_predict(model, tibble(temperature = data[, 1])), expected)
   expect_equal(onnx_predict(model, matrix(as.double(data), ncol = 1)), expected)
   empty <- data.frame(temperature = integer())
   expect_equal(nrow(onnx_predict(model, empty)), 0L)

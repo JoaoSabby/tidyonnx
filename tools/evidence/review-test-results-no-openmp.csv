@@ -1,0 +1,35 @@
+"file","test","nb","failed","skipped","error","warning","passed"
+"test-graph-contract.R","external metadata-free and unpacked ONNX graphs load correctly",4,0,FALSE,FALSE,0,4
+"test-graph-contract.R","invalid tree topology and feature indices fail before traversal",6,0,FALSE,FALSE,0,6
+"test-graph-contract.R","unsupported graph operators cannot masquerade as trees",1,0,FALSE,FALSE,0,1
+"test-graph-contract.R","logistic regression uses a portable explicit graph activation",2,0,FALSE,FALSE,0,2
+"test-native-inference.R","strict split boundaries and missing directions preserve the logistic model",8,0,FALSE,FALSE,0,8
+"test-native-inference.R","matrix and data frame storage preserve integer missing values",6,0,FALSE,FALSE,0,6
+"test-native-inference.R","regression returns numeric predictions and rejects classification types",3,0,FALSE,FALSE,0,3
+"test-native-inference.R","thread settings preserve predictions without changing global runtime state",2,0,FALSE,FALSE,0,2
+"test-persistence.R","ONNX and RDS round trips restore native sessions",9,0,FALSE,FALSE,0,9
+"test-persistence.R","file-backed persistence reports unavailable backing files",3,0,FALSE,FALSE,0,3
+"test-persistence.R","failed conversion leaves an existing destination unchanged",3,0,FALSE,FALSE,0,3
+"test-persistence.R","inspection exposes actual metadata and capabilities",8,0,FALSE,FALSE,0,8
+"test-review-regressions.R","file-backed models detect replacement even when the schema is unchanged",2,0,FALSE,FALSE,0,2
+"test-review-regressions.R","oversized version identifiers cannot wrap into supported versions",1,0,FALSE,FALSE,0,1
+"test-review-regressions.R","matrix inputs reject classed storage and missing column names",3,0,FALSE,FALSE,0,3
+"test-review-regressions.R","native prediction wrappers retain empty result schemas",2,0,FALSE,FALSE,0,2
+"test-review-regressions.R","signed integer labels and external class-score decisions are preserved",3,0,FALSE,FALSE,0,3
+"test-review-regressions.R","attribute type declarations must match their operator fields",1,0,FALSE,FALSE,0,1
+"test-review-regressions.R","data-frame subclasses use column extraction rather than row dispatch",1,0,FALSE,FALSE,0,1
+"test-tidymodels.R","parsnip event levels, formulas, and probability order survive conversion",20,0,FALSE,FALSE,0,20
+"test-tidymodels.R","recipe workflows retain imputation, dummy encoding, and serialized prediction",5,0,FALSE,FALSE,0,5
+"test-tidymodels.R","parsnip regression works through fit_xy and formula workflows",3,0,FALSE,FALSE,0,3
+"test-validation.R","input contracts fail before inference",13,0,FALSE,FALSE,0,13
+"test-validation.R","unsupported tuning is rejected explicitly",14,0,FALSE,FALSE,0,14
+"test-validation.R","malformed protobuf and truncated models never publish a session",32,0,FALSE,FALSE,0,32
+"test-validation.R","model and file contracts are validated",6,0,FALSE,FALSE,0,6
+"test-xgboost-equivalence.R","all six objectives match XGBoost with missing values and non-default intercepts",10,0,FALSE,FALSE,0,10
+"test-xgboost-equivalence.R","binary base scores and parallel trees retain probabilities",3,0,FALSE,FALSE,0,3
+"test-xgboost-equivalence.R","feature order and human-readable class labels survive round trips",5,0,FALSE,FALSE,0,5
+"test-xgboost-equivalence.R","automatically estimated scalar or vector base scores are supported",1,0,FALSE,FALSE,0,1
+"test-xgboost-equivalence.R","all-positive binary trees have valid portable logistic scores",1,0,FALSE,FALSE,0,1
+"test-xgboost-equivalence.R","two-class softmax preserves probabilities after symmetric score conversion",4,0,FALSE,FALSE,0,4
+"test-xgboost-equivalence.R","UTF-8 feature metadata survives conversion under the C locale",4,0,FALSE,FALSE,0,4
+"test-xgboost-equivalence.R","early-stopped conversions honor the saved best boosting iteration",3,0,FALSE,FALSE,0,3

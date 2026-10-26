@@ -1,69 +1,74 @@
 # Validation record
 
-Validated on 2026-10-24 (America/Sao_Paulo).
+## Version 0.1.1 review, 2026-10-26
 
-## Executed checks
+`R CMD build` and `R CMD check --no-manual` completed with **Status: OK**,
+zero errors, zero warnings, and zero notes. The source archive was checked for
+compiled objects, shared libraries, and native symbol caches.
 
-- R CMD build completed successfully.
-- R CMD check --no-manual --no-build-vignettes: **Status: OK**,
-  zero errors, zero warnings, zero notes.
-- Full test suite: **148 expectations passed**, zero failures, errors, warnings,
-  or skips.
-- A separate source installation with OpenMP disabled passed the same
-  **148 expectations** and reported OpenMP unavailable.
-- A fresh R process loaded an ONNX model and predicted without loading
-  the xgboost namespace.
-- Source archive contains no object files or compiled libraries.
+The complete suite passed **192 expectations across 34 tests**, with zero
+failures, warnings, errors, or skips. The same suite passed against a separately
+installed build with OpenMP disabled, and engine inspection confirmed OpenMP was
+unavailable in that build.
 
-Environment: Windows 10 x64, R 4.6.0, GCC/G++ 14.3.0, cpp11 0.5.5,
-S7 0.2.2, and XGBoost 3.2.1.1. C source compilation used GNU C17;
-the bridge used C++17. OpenMP-enabled and disabled builds were both executed.
+The suite covers six source objectives, scalar and vector intercepts, parallel
+trees, early stopping and explicit all-iteration export, binary and multiclass
+ordering, formula and recipe preprocessing, direct parsnip and workflow
+conversion, butcher compatibility, dataframe subclasses, empty batches, native
+session restoration, checksummed backing files, staged publication, malformed
+wire data, graph topology, signed labels, declared attribute types, and float32
+input bounds.
 
-## Cross-platform CI
+All modeling examples in the README were executed. A fresh R process predicted
+from serialized native and workflow objects without loading the source engine
+namespace. Code and documentation coverage audits passed for all 33 named
+package R functions.
 
-GitHub Actions passed on Windows x64, Ubuntu Linux, and macOS ARM64.
-The verified code commit is d1f69e6f25812a0adab6f0fa22136114b34dc10e.
-[Successful workflow run](https://github.com/JoaoSabby/tidyonnx/actions/runs/40150212389).
-Machine-readable job results are in tools/evidence/github-actions.json.
+The current validation environment was Linux x86-64, R 4.3.3, XGBoost 3.2.1.1,
+S7 0.2.2, cpp11 0.5.5, parsnip 1.6.1, workflows 1.3.0, recipes 1.4.0, modeldata
+1.6.0, and butcher 0.4.0. This exercises the declared minimum R version.
 
-## Independent ONNX Runtime C API comparison
+## Independent runtime comparison
 
-The exported graphs were executed by the official Windows x64 ONNX Runtime
-1.20.1 release, loaded through a separately compiled development executable.
-Neither this library nor the executable is required by the installed package.
+The final graphs were executed through the official Linux x64 ONNX Runtime
+1.20.1 C API by `tools/validate-runtime.cpp`. This reference library is an
+independent development check and is not an installed package dependency.
 
-Twelve deterministic scenarios each used 500 rows, five numerical features,
-missing values, 25 boosting rounds, and a fixed seed. They covered all six
-objectives, intercepts 0.2 and 0.8, automatically estimated intercepts, an
-all-positive binary training set, and two-class and three-class softmax models.
+Twelve deterministic scenarios used 500 rows, five numerical features, missing
+values, and 25 boosting iterations. They covered all six objectives, nondefault
+and automatically estimated intercepts, an all-positive binary dataset, and
+softmax models with two and three classes.
 
-| Comparison | Largest absolute difference across all scenarios |
+| Comparison | Largest absolute difference |
 | --- | ---: |
 | tidyonnx vs XGBoost | 9.5367431640625e-7 |
 | tidyonnx vs ONNX Runtime | 1.1920928955078125e-7 |
 | XGBoost vs ONNX Runtime | 9.5367431640625e-7 |
 
-The acceptance threshold was 5e-6. All scenarios passed.
-For multi:softmax, probabilities were independently reconstructed from
-XGBoost's output margins; the package's argmax output is tested separately.
+All scenarios passed the 5e-6 absolute acceptance threshold. For multi:softmax,
+reference probabilities were reconstructed from output margins before comparison.
+Detailed results are in `tools/evidence/review-runtime-equivalence.csv`.
 
-Detailed measurements are in
-[tools/evidence/runtime-equivalence.csv](tools/evidence/runtime-equivalence.csv).
-The standalone checker and reproducible driver are
-[tools/validate-runtime.cpp](tools/validate-runtime.cpp) and
-[tools/validate-runtime.R](tools/validate-runtime.R).
+## Performance evidence
 
-## Coverage and boundaries
+The 800-tree conversion benchmark observed median times of 0.188 s before the
+review and 0.134 s after it, a 28.7% reduction over seven repetitions. Prediction
+error was unchanged between revisions. The longer regression fixture used an
+explicit scale-adjusted float32 bound. See [REVIEW.md](REVIEW.md) and
+`tools/evidence/review-benchmark.csv` for the setup and numerical measurements.
+No production inference speedup or specialized-hardware result is claimed.
 
-Tests exercise numerical boundaries at a strict split threshold, learned
-missing-value directions, integer and double storage, empty batches,
-feature reordering, target-label persistence, file and RDS restoration,
-prediction methods, malformed protobuf input, invalid graph topology,
-missing node references, out-of-range features, external metadata-free models,
-packed and unpacked attributes, and deterministic predictions at 1/2/4
-configured worker limits.
+## Cross-platform automation and historical evidence
 
-The thread tests establish deterministic output under configured limits;
-they do not instrument observed worker counts or prove a speedup.
-No Intel oneAPI, AVX-512, GPU, large-model performance benchmark, exhaustive
-fuzzing, or general ONNX conformance result is claimed. No CRAN submission has been made.
+The repository workflow checks Linux, Windows, and macOS and runs the source
+coverage audit before package checks. Current branch run results are available
+in [GitHub Actions](https://github.com/JoaoSabby/tidyonnx/actions).
+
+The earlier version 0.1.0 validation on 2026-10-24 reported 148 passing
+expectations and independent Windows x64 ONNX Runtime comparisons. Its retained
+files `tools/evidence/R-CMD-check.log`, `github-actions.json`,
+`runtime-equivalence.csv`, and `test-results-no-openmp.csv` are historical
+records. The prior cross-platform code commit was
+`d1f69e6f25812a0adab6f0fa22136114b34dc10e`, with
+[workflow run 40150212389](https://github.com/JoaoSabby/tidyonnx/actions/runs/40150212389).
+The new review evidence uses the `review-` filename prefix.

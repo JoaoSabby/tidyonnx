@@ -1,4 +1,12 @@
+if(requireNamespace("xgboost", quietly = TRUE)) library(xgboost)
+
 # Deterministic native fixtures exercise the package even when xgboost is absent.
+#' @title Construct a deterministic native test ensemble
+#' @description A small numerical tree exercises conversion and inference without XGBoost.
+#' @param objective A supported built-in objective name.
+#' @param base A finite model intercept.
+#' @return A native S7 fixture model.
+#' @keywords internal
 fixture_model <- function(objective = "binary:logistic", base = 0.3) {
   tree <- list(
     tree_param = list(size_leaf_vector = "1"),
@@ -15,12 +23,20 @@ fixture_model <- function(objective = "binary:logistic", base = 0.3) {
     gradient_booster = list(name = "gbtree", model = list(
       trees = list(tree), tree_info = list(0L)))
   )
-  bytes <- tidyonnx:::cpp_serialize_model(
+  bytes <- cpp_serialize_model(
     learner, "temperature", c("absent", "present"), as.double(base), 18L, 8L
   )
-  tidyonnx:::model_from_bytes(bytes, "", TRUE)
+  model_from_bytes(bytes, "", TRUE)
 }
 
+#' @title Fit a deterministic XGBoost equivalence fixture
+#' @description Numerical predictors include missing values and reproducible target signals.
+#' @param objective A supported built-in objective name.
+#' @param base A model intercept.
+#' @param rounds Number of boosting iterations.
+#' @param parallel_trees Number of parallel trees per boosting group.
+#' @return A list with the fitted engine, predictor matrix, and training DMatrix.
+#' @keywords internal
 train_fixture <- function(objective = "binary:logistic", base = 0.3,
     rounds = 15L, parallel_trees = 1L) {
   skip_if_not_installed("xgboost")
@@ -37,7 +53,7 @@ train_fixture <- function(objective = "binary:logistic", base = 0.3,
   parameters <- list(objective = objective, max_depth = 3L, eta = 0.2,
     nthread = 1L, base_score = base, num_parallel_tree = parallel_trees)
   if (multiclass) parameters$num_class <- 3L
-  data <- xgboost::xgb.DMatrix(x, label = y, nthread = 1L)
-  model <- xgboost::xgb.train(parameters, data, nrounds = rounds, verbose = 0L)
+  data <- xgb.DMatrix(x, label = y, nthread = 1L)
+  model <- xgb.train(parameters, data, nrounds = rounds, verbose = 0L)
   list(model = model, x = x, data = data)
 }

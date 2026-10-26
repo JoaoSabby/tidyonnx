@@ -3,7 +3,7 @@ test_that("external metadata-free and unpacked ONNX graphs load correctly", {
   fields <- wire_fields(model@raw_bytes)
   external <- do.call(c, lapply(Filter(function(field) field$tag != 14, fields), "[[", "raw"))
   external <- wire_edit_attribute(external, "nodes_nodeids", c(0, 0, 1, 2), unpacked = TRUE)
-  loaded <- tidyonnx:::model_from_bytes(external, "", TRUE)
+  loaded <- model_from_bytes(external, "", TRUE)
   expect_equal(loaded@source_class, "external")
   expect_equal(loaded@feature_names, "f0")
   expect_equal(loaded@class_levels, c("0", "1"))
@@ -13,17 +13,17 @@ test_that("external metadata-free and unpacked ONNX graphs load correctly", {
 
 test_that("invalid tree topology and feature indices fail before traversal", {
   bytes <- fixture_model()@raw_bytes
-  expect_error(tidyonnx:::cpp_open_model(wire_edit_attribute(bytes,
+  expect_error(cpp_open_model(wire_edit_attribute(bytes,
     "nodes_truenodeids", c(0, 99, 0, 0))), "child")
-  expect_error(tidyonnx:::cpp_open_model(wire_edit_attribute(bytes,
+  expect_error(cpp_open_model(wire_edit_attribute(bytes,
     "nodes_nodeids", c(0, 0, 0, 2))), "Duplicate")
-  expect_error(tidyonnx:::cpp_open_model(wire_edit_attribute(bytes,
+  expect_error(cpp_open_model(wire_edit_attribute(bytes,
     "nodes_featureids", c(0, 999, 0, 0))), "feature")
-  expect_error(tidyonnx:::cpp_open_model(wire_edit_attribute(bytes,
+  expect_error(cpp_open_model(wire_edit_attribute(bytes,
     "nodes_missing_value_tracks_true", c(0, 2, 0, 0))), "missing")
-  expect_error(tidyonnx:::cpp_open_model(wire_edit_attribute(bytes,
+  expect_error(cpp_open_model(wire_edit_attribute(bytes,
     "nodes_treeids", c(0, 1))), "lengths")
-  expect_error(tidyonnx:::cpp_open_model(wire_edit_attribute(bytes,
+  expect_error(cpp_open_model(wire_edit_attribute(bytes,
     "nodes_truenodeids", c(0, 0, 0, 0))), "unreachable|root|Cyclic")
 })
 
@@ -33,7 +33,7 @@ test_that("unsupported graph operators cannot masquerade as trees", {
     node[[index]]$raw <- wire_message(4, charToRaw("MatMul"))
     node
   })
-  expect_error(tidyonnx:::cpp_open_model(bytes), "Unsupported operator")
+  expect_error(cpp_open_model(bytes), "Unsupported operator")
 })
 
 test_that("logistic regression uses a portable explicit graph activation", {
