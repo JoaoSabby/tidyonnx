@@ -71,21 +71,25 @@ would hide failures unrelated to source-format recognition.
 
 ## 5. Model coverage and effort beyond binary logistic classification
 
-The baseline already implements six objectives in its native serializer and
-contains real XGBoost equivalence tests. Retaining those paths avoids removing
-working capabilities solely to reintroduce them later.
+The native baseline contains six objective paths. The approved public conversion
+scope now accepts classification objectives only: XGBoost regression conversion
+and elastic net conversion must report not implemented and return invisible NULL.
+Native loading of already-created supported ONNX regressor graphs remains
+available; it is a separate capability from source-model conversion.
 
 | Objective | Existing mechanism | Incremental engineering effort |
 | --- | --- | --- |
 | `binary:logistic` | Explicit complementary class scores | Baseline support and portability tests |
 | `binary:logitraw` | Regression-shaped raw margin output | Low: retain numeric-response semantics |
-| `reg:squarederror` | Single-target regressor | Low: preserve intercept and numeric output |
-| `reg:logistic` | Regressor followed by explicit Sigmoid | Low maintenance; retain activation portability checks |
+| `reg:squarederror` | Public conversion not implemented | Message and NULL; native graph evaluation retained |
+| `reg:logistic` | Public conversion not implemented | Message and NULL; native graph evaluation retained |
 | `multi:softprob` | Tree-to-class routing and softmax | Moderate validation burden: labels, vector intercepts, ties |
 | `multi:softmax` | Same probability graph with argmax formatting | Moderate validation burden: clarify output semantics |
 
 These are qualitative assessments of existing paths, not elapsed-time estimates.
-No new objective or model family is claimed. Numerical gbtree models and parallel
+Elastic net, including glmnet models supplied directly or through parsnip and
+workflows, also returns message and NULL. No ONNX prediction is fabricated for an
+unsupported model. Numerical classification gbtree models and parallel
 trees remain supported. DART, linear boosters, categorical splits, vector leaves,
 multiple regression targets, and arbitrary custom objectives remain unsupported.
 Early-stopped models are rejected until effective tree-range serialization exists;
@@ -175,7 +179,13 @@ The behavioral suite covers native graph validation, malformed inputs, missing
 values, feature alignment, objective equivalence, persistence, and thread-setting
 invariance. New tests cover S7 dispatch, private naming, informative unsupported
 returns, recipes, binary label encoding, multiclass workflows, RDS restoration,
-and persistence of class presentation order.
+and persistence of class presentation order. The expanded compiler matrix covers
+48 source scenarios: three seeds, two model families, binary/regression tasks,
+and direct, parsnip, formula-workflow, and recipe-workflow routes. Supported binary
+XGBoost cases require exact full-table prediction equality; XGBoost regression
+and elastic net require the documented unsupported result. Precise Intel AVX-512
+builds are mandatory checks; fast-math is a separate experiment that is rejected
+if it changes results or input semantics.
 
 `tools/check-policy.R` checks runtime bridges, disallowed source-file extensions,
 R loop syntax, and the presence of script comments. Cross-platform CI runs that

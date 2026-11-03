@@ -18,7 +18,9 @@ test_that("strict split boundaries and missing directions preserve the logistic 
   expect_equal(rowSums(as.matrix(result)), rep(1, 5), tolerance = 2e-7)
   expect_equal(onnx_predict(model, data, "numeric")$.pred, expected, tolerance = 2e-7)
   expect_equal(levels(onnx_predict(model, data, "class")$.pred_class), c("absent", "present"))
-  expect_equal(onnx_predict(model, data, "raw"), as.matrix(result), ignore_attr = TRUE)
+  # Raw graph values are float32; formatted class-0 complements follow R double arithmetic.
+  expect_equal(onnx_predict(model, data, "raw"), as.matrix(result),
+    ignore_attr = TRUE, tolerance = 2e-7)
   expect_equal(predict(model, data), result)
 })
 

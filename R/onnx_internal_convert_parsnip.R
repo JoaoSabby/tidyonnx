@@ -3,7 +3,8 @@ onnx_internal_convert_parsnip <- function(model, feature_names = NULL, params = 
   params <- onnx_internal_validate_onnx_params(params)
   if (!requireNamespace("parsnip", quietly = TRUE) ||
       !identical(model$spec$engine, "xgboost") || !inherits(model$fit, "xgb.Booster")) {
-    return(onnx_internal_unrecognized_model(model, "A fitted XGBoost engine is required."))
+    return(onnx_internal_unrecognized_model(model,
+      "Conversion is not implemented for this fitted engine; a fitted XGBoost engine is required."))
   }
   target_levels <- model$lvl
   if (length(target_levels)) {

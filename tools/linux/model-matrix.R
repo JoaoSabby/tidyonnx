@@ -99,6 +99,11 @@ onnx_internal_matrix_case <- function(seed, task, family, route) {
       saveRDS(reference, reference_file)
       saveRDS(data, file.path(directory, "data.rds"))
       saveRDS(model, file.path(directory, "source-model.rds"))
+      if (family == "xgboost") {
+        engine <- if (route == "direct") model else if (route == "parsnip") model$fit else
+          workflows::extract_fit_engine(model)
+        xgboost::xgb.save(engine, file.path(directory, "source-model.ubj"))
+      }
       write.csv(as.data.frame(reference), file.path(directory, "source-predictions.csv"),
         row.names = FALSE)
     }
@@ -127,6 +132,7 @@ onnx_internal_matrix_case <- function(seed, task, family, route) {
           type = if (task == "binary") "prob" else "numeric",
           params = list(intra_op_threads = threads))
         actual <- if (task == "binary") as.matrix(result) else as.numeric(result$.pred)
+        if (task == "binary") stopifnot(identical(colnames(actual), colnames(expected)))
         list(rows = rows, threads = threads, actual = actual,
           exact = identical(as.numeric(actual), as.numeric(expected)),
           max_difference = max(abs(actual - expected)))

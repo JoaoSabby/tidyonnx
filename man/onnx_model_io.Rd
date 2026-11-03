@@ -50,6 +50,10 @@ writing a file. Invalid settings, corrupt models, and inference failures remain 
 \code{onnx_predict()} returns a tibble, except for \code{type = "raw"}, which
 returns a numeric vector for regression or a probability matrix for
 classification. Probability columns are named \code{.pred_\{level\}}.
+For converted binary XGBoost models, probability tables compute the complementary
+class as \code{1 - p} in R double precision to match source-model probability tables.
+Raw graph outputs retain their float32 arithmetic and can differ in the
+complementary column by float32 rounding.
 Numeric output is named \code{.pred}; binary numeric output is the positive
 class probability. Class output is a factor column named \code{.pred_class}.
 Multiclass numeric output and regression class/probability output are rejected.

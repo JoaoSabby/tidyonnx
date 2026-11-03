@@ -26,6 +26,7 @@ jobs:
         with:
           context: .
           file: tools/linux/Dockerfile
+          target: binary
           build-args: FEDORA_IMAGE=${{ steps.base.outputs.image }}
           tags: tidyonnx-fedora-validation
           load: true

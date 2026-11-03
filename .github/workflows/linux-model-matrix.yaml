@@ -31,19 +31,40 @@ jobs:
           echo "$image" > validation-results/linux-model-matrix/base-image.txt
           echo "image=$image" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@v3
+      - name: Cache the compiled native R dependencies
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: tools/linux/Dockerfile
+          target: native-r
+          build-args: FEDORA_IMAGE=${{ steps.base.outputs.image }}
+          cache-from: type=gha,scope=fedora-native-r
+          cache-to: type=gha,mode=max,scope=fedora-native-r
+      - name: Cache the fitted-model adapter dependencies
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: tools/linux/Dockerfile
+          target: model-r
+          build-args: FEDORA_IMAGE=${{ steps.base.outputs.image }}
+          cache-from: |
+            type=gha,scope=fedora-native-r
+            type=gha,scope=fedora-model-r
+          cache-to: type=gha,mode=max,scope=fedora-model-r
       - name: Build R model adapters and native Intel compiler
         uses: docker/build-push-action@v6
         with:
           context: .
           file: tools/linux/Dockerfile
-          build-args: |
-            FEDORA_IMAGE=${{ steps.base.outputs.image }}
-            MODEL_MATRIX=1
-            INTEL_COMPILER=1
+          target: matrix
+          build-args: FEDORA_IMAGE=${{ steps.base.outputs.image }}
           tags: tidyonnx-fedora-matrix
           load: true
-          cache-from: type=gha,scope=fedora-native-r
-          cache-to: type=gha,mode=max,scope=fedora-native-r
+          cache-from: |
+            type=gha,scope=fedora-native-r
+            type=gha,scope=fedora-model-r
+            type=gha,scope=fedora-intel-r
+          cache-to: type=gha,mode=max,scope=fedora-intel-r
       - name: Compare source and ONNX across APIs and compiler configurations
         shell: bash
         run: |

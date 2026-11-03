@@ -1,13 +1,18 @@
 # tidyonnx 0.1.0
 
 * Added five public ONNX functions with S7 model objects and tibble outputs.
-* Added native conversion of six numerical XGBoost gbtree objectives.
+* Added native conversion of numerical XGBoost gbtree classification objectives.
 * Added self-contained Nanopb serialization and C tree-ensemble inference.
 * Added named-feature alignment, integer/NA handling, bounded OpenMP workers,
   and transparent native-session restoration after RDS persistence.
 * Added explicit graph-subset validation and independent runtime validation tools.
 
 ## S7 architecture and source adapters
+
+* Report XGBoost regression and elastic net conversion as not implemented,
+  including direct, parsnip, and workflow inputs.
+* Match the source R complementary probability arithmetic in formatted binary
+  predictions while preserving graph-native raw outputs.
 
 * Use S7 dispatch for all public operations and standard R compatibility methods.
 * Prefix private R bindings, generated native wrappers, and test helpers with

@@ -3,7 +3,7 @@
 set -euo pipefail
 mkdir -p /artifacts/model-matrix
 cat /etc/os-release > /artifacts/model-matrix/os-release.txt
-lscpu > /artifacts/model-matrix/cpu.txt
+cat /proc/cpuinfo > /artifacts/model-matrix/cpu.txt
 Rscript tools/check-policy.R
 Rscript tools/linux/model-matrix.R /artifacts/model-matrix gcc
 Rscript -e 'library(tidyonnx); testthat::test_dir("tests/testthat", reporter = "summary", stop_on_failure = TRUE)'
@@ -22,7 +22,7 @@ objdump -d /tmp/avx512-probe > /artifacts/model-matrix/avx512-probe-assembly.txt
 grep -q zmm /artifacts/model-matrix/avx512-probe-assembly.txt
 /tmp/avx512-probe | tee /artifacts/model-matrix/avx512-execution.txt
 
-# Preserve source arithmetic while enabling architecture-specific and whole-program optimization.
+# Preserve source arithmetic while enabling aggressive architecture-specific optimization.
 mkdir -p /opt/validation-libs/intel-precise /opt/validation-libs/intel-fast
 cat > /tmp/Makevars.intel-precise <<'EOF'
 CC = icx
@@ -38,6 +38,8 @@ LDFLAGS = -Wl,-rpath,/opt/intel/oneapi/compiler/latest/lib
 EOF
 R_MAKEVARS_USER=/tmp/Makevars.intel-precise R CMD INSTALL --preclean --no-multiarch \
   --library=/opt/validation-libs/intel-precise . 2>&1 | tee /artifacts/model-matrix/intel-precise-build.log
+grep -q 'icx.*-c ' /artifacts/model-matrix/intel-precise-build.log
+grep -q 'icpx.*-c ' /artifacts/model-matrix/intel-precise-build.log
 objdump -d /opt/validation-libs/intel-precise/tidyonnx/libs/tidyonnx.so \
   > /artifacts/model-matrix/intel-precise-assembly.txt
 R_LIBS=/opt/validation-libs/intel-precise Rscript tools/linux/model-matrix.R \
