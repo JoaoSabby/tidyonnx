@@ -26,14 +26,15 @@ grep -q zmm /artifacts/model-matrix/avx512-probe-assembly.txt
 mkdir -p /opt/validation-libs/intel-precise /opt/validation-libs/intel-fast
 cat > /tmp/Makevars.intel-precise <<'EOF'
 CC = icx
-C17 = icx
+CC17 = icx -std=gnu17
 CXX = icpx
 CXX17 = icpx
 CXX17STD = -std=c++17
-CFLAGS = -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=strict -fno-builtin-expf -ffp-contract=off
-# Freeze flags before R maps CFLAGS back to C17FLAGS for its C17 compiler.
-C17FLAGS := $(CFLAGS)
-CXX17FLAGS = -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=strict -fno-builtin-expf -ffp-contract=off
+# Keep both C standards and C++ independent of R's command-line CFLAGS mapping.
+TIDYONNX_INTEL_FLAGS = -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=strict -fno-builtin-expf -ffp-contract=off
+CFLAGS = $(TIDYONNX_INTEL_FLAGS)
+C17FLAGS = $(TIDYONNX_INTEL_FLAGS)
+CXX17FLAGS = $(TIDYONNX_INTEL_FLAGS)
 SHLIB_OPENMP_CFLAGS = -qopenmp
 LDFLAGS = -Wl,-rpath,/opt/intel/oneapi/compiler/latest/lib
 EOF
