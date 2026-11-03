@@ -1,0 +1,31 @@
+{
+  "run_id": 41575169595,
+  "run_attempt": 2,
+  "run_url": "https://github.com/JoaoSabby/tidyonnx/actions/runs/41575169595",
+  "tested_source_commit": "c9f013b13d52412a570bb673088e1e9f5ec6ac07",
+  "branch": "linux-model-matrix-validation",
+  "operating_system": "Fedora Linux 44 stable container",
+  "base_image_digest": "sha256:9b53c238bb4e9f6221b4820bbdfa61c1bd8273d386dacaaed429a81dd7362085",
+  "r_version": "4.6.1",
+  "gcc_version": "16.2.1",
+  "intel_compiler_version": "2026.2.0 (2026.2.0.20261001)",
+  "host_cpu": "AMD EPYC 9V45 96-Core Processor",
+  "logical_cpus_available": 4,
+  "real_avx512_probe": "pass",
+  "profiles": [
+    {"name": "gcc", "accepted": true, "scenarios": 48, "exact_binary_scenarios": 12, "unsupported_expected": 36, "max_probability_difference": 0, "full_package_suite": "pass without skips"},
+    {"name": "intel-precise", "accepted": true, "scenarios": 48, "exact_binary_scenarios": 12, "unsupported_expected": 36, "max_probability_difference": 0, "full_package_suite": "pass without skips", "flags": "-O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=strict -fno-builtin-expf -ffp-contract=off"},
+    {"name": "intel-fast", "accepted": false, "scenarios": 48, "mismatching_binary_scenarios": 12, "unsupported_expected": 36, "max_probability_difference": 1.1920928955078125e-7, "changed_values_in_full_batches": 1404, "changed_rows_in_full_batches": 702, "changed_predicted_classes": 0, "flags": "-O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=fast=2 -ffast-math"}
+  ],
+  "full_binary_probability_values_per_profile": 14400,
+  "batch_sizes": [1, 121, 600],
+  "worker_counts": [1, 2],
+  "routes": ["direct", "parsnip", "workflow_formula", "workflow_recipe"],
+  "artifact_id": 13203147867,
+  "artifact_bytes": 26730996,
+  "artifact_sha256": "e17df18d6bea172c5bff233b075e2026d594d4ae6cb1588703e229d96ecafbca",
+  "artifact_sha256_verified_locally": true,
+  "artifact_expires_at": "2026-11-17T04:00:39Z",
+  "local_extraction": "validation-results/linux-model-matrix-intel",
+  "limitations": "No speedup benchmark or Intel CPU validation; no universal bitwise guarantee; individual fast-math flags were not isolated."
+}

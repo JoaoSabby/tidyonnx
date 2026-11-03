@@ -1,6 +1,97 @@
 # Validation record
 
-## S7 architecture revision: 2026-11-02 (America/Sao_Paulo)
+## Model-matrix revision: 2026-11-03 (America/Sao_Paulo)
+
+The current public scope rejects XGBoost regression conversion and elastic net
+conversion with an informative message and invisible NULL. Native loading of
+supported existing ONNX regressor graphs is retained.
+
+The local Windows working tree passed 184 package expectations with no failures,
+warnings, or skips. Its full package check completed with Status: OK. The expanded
+local matrix passed all 48 source scenarios: 12 binary XGBoost conversions with
+exact full-probability-table equality and 36 expected unsupported results. It
+covers three seeds, direct engines, parsnip, formula workflows, recipe workflows,
+three batch sizes, and one-worker/two-worker consistency.
+
+The first completed Fedora binary acceptance run is
+[41565220687](https://github.com/JoaoSabby/tidyonnx/actions/runs/41565220687),
+at source commit 78c5a8a94e97cda192b8a6c3e4f563d181806e77. Fedora Linux 44,
+R 4.6.1, and GCC 16.2.1 produced **1,200 exactly matching probabilities**, maximum
+absolute difference zero, and 1,200 matching classes. Reference predictions were
+saved before conversion. ONNX inference ran in a fresh process without loading
+XGBoost or tidymodels. The downloaded artifact SHA-256 and all 18 file checksums
+were verified locally. Its summary is `tools/evidence/fedora-binary-logistic-summary.json`.
+Three workflow tests were skipped in that initial minimal image; the expanded
+matrix image installs the required adapters explicitly.
+
+The expanded Fedora GCC matrix also passed all 48 scenarios in run
+[41570529372](https://github.com/JoaoSabby/tidyonnx/actions/runs/41570529372),
+at source commit 4837fecc904d8e89dfa78ea3d20c4074e4e08f20. All 12 supported
+conversions matched exactly, with maximum absolute difference zero; the other
+36 returned the expected unsupported result. Its full package suite passed
+without skips. That run subsequently stopped while initializing Intel because
+the container lacked `ps`; it does not validate Intel compilation or inference.
+The artifact archive SHA-256 was verified locally.
+
+### Completed Intel AVX-512 matrix
+
+Run [41575169595](https://github.com/JoaoSabby/tidyonnx/actions/runs/41575169595),
+attempt 2, passed at source commit c9f013b13d52412a570bb673088e1e9f5ec6ac07.
+The actual container was Fedora 44 stable, R 4.6.1, GCC 16.2.1, and Intel oneAPI
+DPC++/C++ Compiler 2026.2.0. Its Ubuntu host exposed four logical CPUs on an
+AMD EPYC 9V45 processor. This validates the Intel compiler on AVX-512 hardware;
+it is not an Intel-CPU benchmark. Fedora's stable latest image resolved to
+`sha256:9b53c238bb4e9f6221b4820bbdfa61c1bd8273d386dacaaed429a81dd7362085`.
+
+| Build | Binary scenarios | Unsupported scenarios | Maximum probability difference | Decision |
+| --- | --- | --- | --- | --- |
+| GCC | 12 exact | 36 expected | 0 | Accepted |
+| Intel O3 / AVX-512 / strict arithmetic | 12 exact | 36 expected | 0 | Accepted |
+| Intel O3 / AVX-512 / fast-math | 12 mismatches | 36 expected | 1.1920928955078125e-07 | Rejected |
+
+Each accepted profile matched all 14,400 values in the full 600-row, two-column
+probability tables. The additional 1-row and 121-row batches matched exactly,
+one-worker and two-worker outputs were identical, and RDS restoration preserved
+predictions. The complete package suite passed under GCC and Intel strict,
+without skips. XGBoost regression and elastic net returned the required message
+and NULL through all four interfaces. Their original predictions were saved,
+but unsupported conversions have no ONNX predictions to compare.
+
+The accepted Intel profile compiled every C and C++ translation unit using
+`icx`/`icpx`, `-O3 -march=skylake-avx512 -qopt-zmm-usage=high`,
+`-fp-model=strict -fno-builtin-expf -ffp-contract=off`, and Intel OpenMP.
+The compiler's environment required `procps-ng`. R's C17 compiler must be selected
+with `CC17`; its flags use a separate variable to avoid R's command-line CFLAGS
+mapping. These setup issues were corrected before the successful run.
+An explicit AVX-512 intrinsic probe was compiled, its ZMM instructions recorded,
+and the executable passed on the actual runner. Disassembly and compile commands
+are preserved; no speedup or universal hot-loop vectorization is claimed.
+
+The aggressive experiment changed only the arithmetic profile to
+`-fp-model=fast=2 -ffast-math`. Both native builds installed successfully. Its
+full probability tables contained 1,404 changed values across 702 of 7,200 rows,
+including rows without missing values; no predicted class changed in this fixture.
+This rules out missing-data handling as the sole explanation. The combined
+fast-math profile permits arithmetic changes, but the separate contribution of
+each flag was not isolated. The correction for the required exactness contract
+is the accepted strict profile, retaining O3 and AVX-512. The experimental profile
+is explicitly rejected and is not configured in the package's default Makevars.
+The workflow succeeds only after both required profiles pass; its successful
+status does not mean that fast-math passed.
+
+Artifact [13203147867](https://github.com/JoaoSabby/tidyonnx/actions/runs/41575169595/artifacts/13203147867)
+contains the original models, inputs, predictions, converted RDS objects,
+per-profile predictions, messages, build logs, and assembly. Its downloaded
+26,730,996-byte ZIP was verified against SHA-256
+`e17df18d6bea172c5bff233b075e2026d594d4ae6cb1588703e229d96ecafbca`.
+A local copy is retained in `validation-results/linux-model-matrix-intel`;
+the GitHub artifact expires on 2026-11-17. Compact summaries, compiler logs,
+CPU details, and fast-math diagnostics are tracked in `tools/evidence`.
+
+These deterministic fixtures establish exact agreement for the tested models
+and environments, not a universal bitwise guarantee for every possible model.
+
+## Historical S7 architecture revision: 2026-11-02 (America/Sao_Paulo)
 
 The revision in branch `s7-conversion-architecture` was built and installed with
 R 4.6.0 and GCC/G++ 14.3.0 on Windows x64. The updated behavioral suite passed

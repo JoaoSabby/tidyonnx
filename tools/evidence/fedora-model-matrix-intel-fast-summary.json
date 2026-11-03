@@ -1,0 +1,386 @@
+[
+  {
+    "case": "xgboost-binary-direct-428",
+    "configuration": "intel-fast",
+    "status": "prediction_mismatch",
+    "exact": false,
+    "max_difference": 1.1920928955078125e-07,
+    "error": ""
+  },
+  {
+    "case": "xgboost-binary-direct-821",
+    "configuration": "intel-fast",
+    "status": "prediction_mismatch",
+    "exact": false,
+    "max_difference": 1.1920928955078125e-07,
+    "error": ""
+  },
+  {
+    "case": "xgboost-binary-direct-20261102",
+    "configuration": "intel-fast",
+    "status": "prediction_mismatch",
+    "exact": false,
+    "max_difference": 1.1920928955078125e-07,
+    "error": ""
+  },
+  {
+    "case": "xgboost-regression-direct-428",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "xgboost-regression-direct-821",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "xgboost-regression-direct-20261102",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-binary-direct-428",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-binary-direct-821",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-binary-direct-20261102",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-regression-direct-428",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-regression-direct-821",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-regression-direct-20261102",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "xgboost-binary-parsnip-428",
+    "configuration": "intel-fast",
+    "status": "prediction_mismatch",
+    "exact": false,
+    "max_difference": 1.1920928955078125e-07,
+    "error": ""
+  },
+  {
+    "case": "xgboost-binary-parsnip-821",
+    "configuration": "intel-fast",
+    "status": "prediction_mismatch",
+    "exact": false,
+    "max_difference": 5.9604644775390625e-08,
+    "error": ""
+  },
+  {
+    "case": "xgboost-binary-parsnip-20261102",
+    "configuration": "intel-fast",
+    "status": "prediction_mismatch",
+    "exact": false,
+    "max_difference": 1.1920928955078125e-07,
+    "error": ""
+  },
+  {
+    "case": "xgboost-regression-parsnip-428",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "xgboost-regression-parsnip-821",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "xgboost-regression-parsnip-20261102",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-binary-parsnip-428",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-binary-parsnip-821",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-binary-parsnip-20261102",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-regression-parsnip-428",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-regression-parsnip-821",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-regression-parsnip-20261102",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "xgboost-binary-workflow_formula-428",
+    "configuration": "intel-fast",
+    "status": "prediction_mismatch",
+    "exact": false,
+    "max_difference": 1.1920928955078125e-07,
+    "error": ""
+  },
+  {
+    "case": "xgboost-binary-workflow_formula-821",
+    "configuration": "intel-fast",
+    "status": "prediction_mismatch",
+    "exact": false,
+    "max_difference": 5.9604644775390625e-08,
+    "error": ""
+  },
+  {
+    "case": "xgboost-binary-workflow_formula-20261102",
+    "configuration": "intel-fast",
+    "status": "prediction_mismatch",
+    "exact": false,
+    "max_difference": 1.1920928955078125e-07,
+    "error": ""
+  },
+  {
+    "case": "xgboost-regression-workflow_formula-428",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "xgboost-regression-workflow_formula-821",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "xgboost-regression-workflow_formula-20261102",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-binary-workflow_formula-428",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-binary-workflow_formula-821",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-binary-workflow_formula-20261102",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-regression-workflow_formula-428",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-regression-workflow_formula-821",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-regression-workflow_formula-20261102",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "xgboost-binary-workflow_recipe-428",
+    "configuration": "intel-fast",
+    "status": "prediction_mismatch",
+    "exact": false,
+    "max_difference": 1.1920928955078125e-07,
+    "error": ""
+  },
+  {
+    "case": "xgboost-binary-workflow_recipe-821",
+    "configuration": "intel-fast",
+    "status": "prediction_mismatch",
+    "exact": false,
+    "max_difference": 5.9604644775390625e-08,
+    "error": ""
+  },
+  {
+    "case": "xgboost-binary-workflow_recipe-20261102",
+    "configuration": "intel-fast",
+    "status": "prediction_mismatch",
+    "exact": false,
+    "max_difference": 1.1920928955078125e-07,
+    "error": ""
+  },
+  {
+    "case": "xgboost-regression-workflow_recipe-428",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "xgboost-regression-workflow_recipe-821",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "xgboost-regression-workflow_recipe-20261102",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-binary-workflow_recipe-428",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-binary-workflow_recipe-821",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-binary-workflow_recipe-20261102",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-regression-workflow_recipe-428",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-regression-workflow_recipe-821",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  },
+  {
+    "case": "elastic_net-regression-workflow_recipe-20261102",
+    "configuration": "intel-fast",
+    "status": "unsupported_expected",
+    "exact": null,
+    "max_difference": null,
+    "error": ""
+  }
+]

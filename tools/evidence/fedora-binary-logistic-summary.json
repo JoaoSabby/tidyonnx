@@ -1,0 +1,14 @@
+{
+  "source_revision": "78c5a8a94e97cda192b8a6c3e4f563d181806e77",
+  "rows": 1200,
+  "objective": "binary:logistic",
+  "exact_bitwise_equality": true,
+  "exact_value_matches": 1200,
+  "max_absolute_difference": 0,
+  "mean_absolute_difference": 0,
+  "root_mean_squared_difference": 0,
+  "absolute_tolerance": 9.9999999999999995e-07,
+  "numerically_equal": true,
+  "class_matches": 1200,
+  "classes_identical": true
+}

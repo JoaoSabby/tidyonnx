@@ -1,0 +1,68 @@
+* installing *source* package 'tidyonnx' ...
+** this is package 'tidyonnx' version '0.1.0'
+** using staged installation
+** libs
+specified C++17
+using C compiler: 'Intel(R) oneAPI DPC++/C++ Compiler 2026.2.0 (2026.2.0.20261001)'
+using C++ compiler: 'Intel(R) oneAPI DPC++/C++ Compiler 2026.2.0 (2026.2.0.20261001)'
+using C++17
+icpx -std=c++17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include    -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=fast=2 -ffast-math  -c cpp11.cpp -o cpp11.o
+icpx -std=c++17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include    -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=fast=2 -ffast-math  -c bindings.cpp -o bindings.o
+bindings.cpp:112:28: warning: use of infinity is undefined behavior due to the currently enabled floating-point options [-Wnan-infinity-disabled]
+  112 |         tidyonnx::require(!std::isinf(source[row]), "Infinite predictor values are not supported.");
+      |                            ^~~~~~~~~~~~~~~~~~~~~~~
+icpx -std=c++17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include    -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=fast=2 -ffast-math  -c model.cpp -o model.o
+model.cpp:337:13: warning: use of infinity is undefined behavior due to the currently enabled floating-point options [-Wnan-infinity-disabled]
+  337 |     require(std::isfinite(values[index]) && (missing[index] == 0 || missing[index] == 1),
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+model.cpp:397:55: warning: use of infinity is undefined behavior due to the currently enabled floating-point options [-Wnan-infinity-disabled]
+  397 |       target >= 0 && target < session->num_targets && std::isfinite(weight_values[index]),
+      |                                                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+model.cpp:447:51: warning: use of infinity is undefined behavior due to the currently enabled floating-point options [-Wnan-infinity-disabled]
+  447 |   for (float base : session->base_values) require(std::isfinite(base), "Nonfinite base value.");
+      |                                                   ^~~~~~~~~~~~~~~~~~~
+1 warning generated.
+icx -std=gnu17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include   -qopenmp -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=fast=2 -ffast-math -c onnx_parser.c -o onnx_parser.o
+icx -std=gnu17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include   -qopenmp -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=fast=2 -ffast-math -c tree_ensemble.c -o tree_ensemble.o
+tree_ensemble.c:55:48: warning: use of NaN via a macro is undefined behavior due to the currently enabled floating-point options [-Wnan-infinity-disabled]
+   55 |             value = integer_value == INT_MIN ? NAN : (float)integer_value;
+      |                                                ^
+tree_ensemble.c:55:48: warning: use of NaN is undefined behavior due to the currently enabled floating-point options [-Wnan-infinity-disabled]
+   55 |             value = integer_value == INT_MIN ? NAN : (float)integer_value;
+      |                                                ^~~
+/usr/include/math.h:102:17: note: expanded from macro 'NAN'
+  102 | #   define NAN (__builtin_nanf (""))
+      |                 ^~~~~~~~~~~~~~~~~~~
+2 warnings generated.
+icx -std=gnu17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include   -qopenmp -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=fast=2 -ffast-math -c nanopb/pb_common.c -o nanopb/pb_common.o
+icx -std=gnu17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include   -qopenmp -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=fast=2 -ffast-math -c nanopb/pb_decode.c -o nanopb/pb_decode.o
+icx -std=gnu17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include   -qopenmp -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=fast=2 -ffast-math -c nanopb/pb_encode.c -o nanopb/pb_encode.o
+icpx -std=c++17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include    -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=fast=2 -ffast-math  -c serializers/xgb_serializer.cpp -o serializers/xgb_serializer.o
+serializers/xgb_serializer.cpp:69:11: warning: use of infinity is undefined behavior due to the currently enabled floating-point options [-Wnan-infinity-disabled]
+   69 |   require(std::isfinite(result), "Nonfinite value in XGBoost model.");
+      |           ^~~~~~~~~~~~~~~~~~~~~
+serializers/xgb_serializer.cpp:203:15: warning: use of infinity is undefined behavior due to the currently enabled floating-point options [-Wnan-infinity-disabled]
+  203 |       require(std::isfinite(value), "Nonfinite base_score.");
+      |               ^~~~~~~~~~~~~~~~~~~~
+serializers/xgb_serializer.cpp:293:17: warning: use of infinity is undefined behavior due to the currently enabled floating-point options [-Wnan-infinity-disabled]
+  293 |         require(std::isfinite(encoded), "XGBoost node value exceeds float32 range.");
+      |                 ^~~~~~~~~~~~~~~~~~~~~~
+3 warnings generated.
+3 warnings generated.
+icpx -std=c++17 -shared -L/usr/lib64/R/lib -Wl,-rpath,/opt/intel/oneapi/compiler/latest/lib -o tidyonnx.so cpp11.o bindings.o model.o onnx_parser.o tree_ensemble.o nanopb/pb_common.o nanopb/pb_decode.o nanopb/pb_encode.o serializers/xgb_serializer.o -qopenmp -L/usr/lib64/R/lib -lR
+installing to /opt/validation-libs/intel-fast/00LOCK-workspace/00new/tidyonnx/libs
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+  converting help for package 'tidyonnx'
+    finding HTML links ... done
+    onnx_model_io                           html  
+    tidyonnx                                html  
+** building package indices
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (tidyonnx)

@@ -60,3 +60,30 @@ docker run --rm \
 The image installs R and its development toolchain from Fedora. cpp11 and the
 current XGBoost R package are built from CRAN. No interpreter bridge or external
 inference service participates in conversion or prediction.
+
+## Extended model and compiler matrix
+
+`model-matrix.R` evaluates 48 source scenarios: three seeds, binary/regression
+tasks, XGBoost/elastic net families, and direct/parsnip/formula-workflow/recipe-workflow
+interfaces. Binary XGBoost conversion requires exact equality of both probability
+columns at three batch sizes with one and two workers, followed by RDS restoration.
+XGBoost regression and elastic net must emit the implemented-format message and
+return NULL; their source predictions are saved, but no ONNX prediction is invented.
+
+The Intel workflow checks actual CPU flags and executes an explicit AVX-512 probe.
+It builds the package with icx/icpx, records compile commands and disassembly,
+and reruns the same source references under precise and experimental fast-math
+configurations. The precise profile uses O3, a Skylake AVX-512 target, high ZMM
+usage, strict floating-point semantics, and the source-compatible scalar expf call.
+Fast-math results are recorded separately and rejected if they change predictions
+or input semantics. A compiled ISA target and a successful probe do not establish
+that every tree-traversal operation was vectorized or that a speedup was measured.
+
+```sh
+# Run the extended matrix only on a host exposing the required AVX-512 features.
+docker build --target matrix -f tools/linux/Dockerfile -t tidyonnx-fedora-matrix .
+mkdir -p validation-results/linux-model-matrix
+docker run --rm \
+  -v "$PWD/validation-results/linux-model-matrix:/artifacts" \
+  tidyonnx-fedora-matrix
+```

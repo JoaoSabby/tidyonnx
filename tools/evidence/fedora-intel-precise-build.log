@@ -1,0 +1,34 @@
+* installing *source* package 'tidyonnx' ...
+** this is package 'tidyonnx' version '0.1.0'
+** using staged installation
+** libs
+specified C++17
+using C compiler: 'Intel(R) oneAPI DPC++/C++ Compiler 2026.2.0 (2026.2.0.20261001)'
+using C++ compiler: 'Intel(R) oneAPI DPC++/C++ Compiler 2026.2.0 (2026.2.0.20261001)'
+using C++17
+icpx -std=c++17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include    -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=strict -fno-builtin-expf -ffp-contract=off  -c cpp11.cpp -o cpp11.o
+icpx -std=c++17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include    -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=strict -fno-builtin-expf -ffp-contract=off  -c bindings.cpp -o bindings.o
+icpx -std=c++17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include    -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=strict -fno-builtin-expf -ffp-contract=off  -c model.cpp -o model.o
+icx -std=gnu17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include   -qopenmp -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=strict -fno-builtin-expf -ffp-contract=off -c onnx_parser.c -o onnx_parser.o
+icx -std=gnu17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include   -qopenmp -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=strict -fno-builtin-expf -ffp-contract=off -c tree_ensemble.c -o tree_ensemble.o
+icx -std=gnu17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include   -qopenmp -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=strict -fno-builtin-expf -ffp-contract=off -c nanopb/pb_common.c -o nanopb/pb_common.o
+icx -std=gnu17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include   -qopenmp -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=strict -fno-builtin-expf -ffp-contract=off -c nanopb/pb_decode.c -o nanopb/pb_decode.o
+icx -std=gnu17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include   -qopenmp -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=strict -fno-builtin-expf -ffp-contract=off -c nanopb/pb_encode.c -o nanopb/pb_encode.o
+icpx -std=c++17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include    -fpic  -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=strict -fno-builtin-expf -ffp-contract=off  -c serializers/xgb_serializer.cpp -o serializers/xgb_serializer.o
+icpx -std=c++17 -shared -L/usr/lib64/R/lib -Wl,-rpath,/opt/intel/oneapi/compiler/latest/lib -o tidyonnx.so cpp11.o bindings.o model.o onnx_parser.o tree_ensemble.o nanopb/pb_common.o nanopb/pb_decode.o nanopb/pb_encode.o serializers/xgb_serializer.o -qopenmp -L/usr/lib64/R/lib -lR
+installing to /opt/validation-libs/intel-precise/00LOCK-workspace/00new/tidyonnx/libs
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+  converting help for package 'tidyonnx'
+    finding HTML links ... done
+    onnx_model_io                           html  
+    tidyonnx                                html  
+** building package indices
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (tidyonnx)
