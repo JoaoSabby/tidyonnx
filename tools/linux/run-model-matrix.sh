@@ -31,7 +31,8 @@ CXX = icpx
 CXX17 = icpx
 CXX17STD = -std=c++17
 CFLAGS = -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=strict -fno-builtin-expf -ffp-contract=off
-C17FLAGS = $(CFLAGS)
+# Freeze flags before R maps CFLAGS back to C17FLAGS for its C17 compiler.
+C17FLAGS := $(CFLAGS)
 CXX17FLAGS = -O3 -march=skylake-avx512 -qopt-zmm-usage=high -fp-model=strict -fno-builtin-expf -ffp-contract=off
 SHLIB_OPENMP_CFLAGS = -qopenmp
 LDFLAGS = -Wl,-rpath,/opt/intel/oneapi/compiler/latest/lib
