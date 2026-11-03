@@ -4,7 +4,7 @@ set -euo pipefail
 mkdir -p /artifacts
 cat /etc/os-release | tee /artifacts/os-release.txt
 uname -a | tee /artifacts/kernel.txt
-rpm -q fedora-release R-core gcc gcc-c++ | tee /artifacts/system-packages.txt
+rpm -q R-core gcc gcc-c++ | tee /artifacts/system-packages.txt
 Rscript tools/check-policy.R
 Rscript tools/linux/train-binary-logistic.R /artifacts
 Rscript tools/linux/convert-binary-logistic.R /artifacts

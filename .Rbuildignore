@@ -9,3 +9,4 @@
 ^DESIGN\.md$
 (^|/)src/.*\.(o|so|dll|a)$
 ^\.gitattributes$
+^\.dockerignore$
