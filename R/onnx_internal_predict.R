@@ -46,6 +46,10 @@ onnx_internal_predict <- function(object, new_data, type = NULL, params = list()
     return(tibble::tibble(.pred_class = factor(object@class_levels[index],
       levels = target_levels)))
   }
+  # Match R's source-model probability container: class 0 is the double complement of class 1.
+  if (object@task_type == "classification_binary" && object@source_class == "xgb.Booster") {
+    output[, 1L] <- 1 - output[, 2L]
+  }
   result <- as.data.frame(output)
   names(result) <- paste0(".pred_", object@class_levels)
   result <- result[paste0(".pred_", target_levels)]

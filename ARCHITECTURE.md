@@ -3,8 +3,11 @@
 ## Current S7 and adapter decisions
 
 The approved public API, naming rules, source dispatch, fitted workflow support,
-and runtime constraints are specified in [DESIGN.md](DESIGN.md). All five public
-operations are S7 generics; private R bindings start with `onnx_internal_`.
+and runtime constraints are specified in [DESIGN.md](DESIGN.md). Conversion
+rejects XGBoost regression models and elastic net models with
+an informative message and invisible NULL. Existing native ONNX regressor loading
+is retained; conversion support and graph-evaluation support are separate contracts.
+All five public operations are S7 generics; private R bindings start with `onnx_internal_`.
 Conversion takes fitted source models only. Workflow blueprints are retained in
 R objects and require RDS persistence because standalone ONNX preprocessing
 serialization is outside the current graph subset. Existing native design details

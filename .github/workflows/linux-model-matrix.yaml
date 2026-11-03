@@ -1,0 +1,58 @@
+name: Fedora model matrix and Intel AVX-512
+on:
+  push:
+    branches: [linux-model-matrix-validation]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  matrix:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check real AVX-512 hardware before building
+        shell: bash
+        run: |
+          # Persist hardware evidence and fail early instead of silently executing a fallback ISA.
+          mkdir -p validation-results/linux-model-matrix
+          lscpu | tee validation-results/linux-model-matrix/runner-cpu.txt
+          grep -qw avx512f /proc/cpuinfo
+          grep -qw avx512bw /proc/cpuinfo
+          grep -qw avx512dq /proc/cpuinfo
+          grep -qw avx512vl /proc/cpuinfo
+      - name: Pin the current stable Fedora image
+        id: base
+        shell: bash
+        run: |
+          # Resolve the stable image once for the entire compiler matrix.
+          docker pull registry.fedoraproject.org/fedora:latest
+          image=$(docker image inspect registry.fedoraproject.org/fedora:latest --format '{{index .RepoDigests 0}}')
+          echo "$image" > validation-results/linux-model-matrix/base-image.txt
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - name: Build R model adapters and native Intel compiler
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: tools/linux/Dockerfile
+          build-args: |
+            FEDORA_IMAGE=${{ steps.base.outputs.image }}
+            MODEL_MATRIX=1
+            INTEL_COMPILER=1
+          tags: tidyonnx-fedora-matrix
+          load: true
+          cache-from: type=gha,scope=fedora-native-r
+          cache-to: type=gha,mode=max,scope=fedora-native-r
+      - name: Compare source and ONNX across APIs and compiler configurations
+        shell: bash
+        run: |
+          # All configurations reuse persisted references and keep every scenario result.
+          docker run --rm -e SOURCE_REVISION="$GITHUB_SHA" -v "$PWD/validation-results/linux-model-matrix:/artifacts" tidyonnx-fedora-matrix bash tools/linux/run-model-matrix.sh 2>&1 | tee validation-results/linux-model-matrix/execution.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fedora-model-matrix-${{ github.sha }}
+          path: validation-results/linux-model-matrix
+          retention-days: 14
+          if-no-files-found: error

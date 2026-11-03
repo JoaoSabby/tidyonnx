@@ -16,17 +16,16 @@ x <- matrix(rnorm(500 * 5), ncol = 5)
 colnames(x) <- c("temperature", "rainfall", "altitude", "soil", "canopy")
 x[sample(length(x), 180)] <- NA_real_
 signal <- rowSums(replace(x, is.na(x), 0))
-objectives <- c("binary:logistic", "binary:logitraw", "reg:squarederror",
-  "reg:logistic", "multi:softprob", "multi:softmax")
+objectives <- c("binary:logistic", "binary:logitraw", "multi:softprob", "multi:softmax")
 scenarios <- data.frame(
   objective = c(objectives, "binary:logistic", "binary:logistic",
     "binary:logistic", "multi:softprob"),
-  base = c(rep(0.2, 6), 0.8, 0.2, NA, NA),
-  all_positive = c(rep(FALSE, 7), TRUE, FALSE, FALSE),
+  base = c(rep(0.2, length(objectives)), 0.8, 0.2, NA, NA),
+  all_positive = c(rep(FALSE, length(objectives) + 1L), TRUE, FALSE, FALSE),
   stringsAsFactors = FALSE
 )
 scenarios$num_classes <- 3L
-extra <- scenarios[5:6, ]
+extra <- scenarios[match(c("multi:softprob", "multi:softmax"), scenarios$objective), ]
 extra$num_classes <- 2L
 scenarios <- rbind(scenarios, extra)
 input_file <- file.path(output_directory, "features-float32.bin")

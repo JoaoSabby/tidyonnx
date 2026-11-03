@@ -1,7 +1,6 @@
 # Verify observable model contracts with deterministic inputs.
-test_that("all six objectives match XGBoost with missing values and non-default intercepts", {
-  objectives <- c("binary:logistic", "binary:logitraw", "reg:squarederror",
-    "reg:logistic", "multi:softprob", "multi:softmax")
+test_that("implemented classification objectives match XGBoost with missing values", {
+  objectives <- c("binary:logistic", "binary:logitraw", "multi:softprob", "multi:softmax")
   invisible(lapply(objectives, function(objective) {
     fixture <- onnx_internal_train_fixture(objective)
     converted <- onnx_convert(fixture$model)

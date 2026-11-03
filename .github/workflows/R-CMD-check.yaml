@@ -1,7 +1,7 @@
 name: R-CMD-check
 on:
   push:
-    branches-ignore: [linux-binary-logistic-validation]
+    branches-ignore: [linux-binary-logistic-validation, linux-model-matrix-validation]
   pull_request:
   workflow_dispatch:
 permissions:

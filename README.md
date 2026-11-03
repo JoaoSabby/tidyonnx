@@ -76,8 +76,6 @@ route and ordinary ONNX inference do not load them.
 | --- | --- | --- |
 | binary:logistic | TreeEnsembleClassifier | Two class probabilities |
 | binary:logitraw | TreeEnsembleRegressor | Raw margin |
-| reg:squarederror | TreeEnsembleRegressor | Numeric response |
-| reg:logistic | TreeEnsembleRegressor + Sigmoid | Logistic response |
 | multi:softprob | TreeEnsembleClassifier | Class probabilities |
 | multi:softmax | TreeEnsembleClassifier | Class probabilities or argmax class |
 
@@ -86,8 +84,12 @@ tree-to-class assignments and scalar or vector intercept. It exports **all store
 trees**, rather than a caller-specific iteration range. Numerical `gbtree`
 boosters and `num_parallel_tree` are supported. Categorical splits, DART,
 linear boosters, vector leaves, and multiple regression targets are rejected.
-Custom objectives cannot be reconstructed from a saved model; only the six
+Custom objectives cannot be reconstructed from a saved model; only the four
 stored built-in objective names above are supported.
+XGBoost regression conversion and elastic net conversion are not implemented:
+they emit the implemented-format message and return invisible `NULL`, including
+when supplied through parsnip or a fitted workflow. Native loading of previously
+created supported ONNX regressor graphs remains available.
 Early-stopped models are currently unsupported because effective tree-range
 serialization is not implemented. An unrecognized source class or unsupported
 format produces a message listing implemented formats and returns `NULL`

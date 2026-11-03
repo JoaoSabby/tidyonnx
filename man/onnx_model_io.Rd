@@ -77,11 +77,14 @@ Presentation order survives ONNX save/load through validated model metadata.
 Early-stopped source models are currently unsupported because portable tree-range
 serialization has not been implemented.
 
-Supported objectives are \code{binary:logistic}, \code{binary:logitraw},
-\code{reg:squarederror}, \code{reg:logistic}, \code{multi:softprob}, and
+Supported conversion objectives are \code{binary:logistic}, \code{binary:logitraw},
+\code{multi:softprob}, and
 \code{multi:softmax}. Conversion exports all stored trees from numerical
 \code{gbtree} boosters. Categorical splits, DART, linear boosters, vector
 leaves, and multiple regression targets are unsupported.
+XGBoost regression conversion and elastic net conversion return an informative
+message and invisible NULL, including through parsnip and workflows.
+The native loader can still evaluate supported external ONNX regressor graphs.
 
 Classification defaults to class levels \code{"0"}, \code{"1"}, and so on.
 Binary class predictions select the positive class at probability 0.5.

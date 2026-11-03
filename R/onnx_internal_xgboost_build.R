@@ -7,6 +7,10 @@ onnx_internal_xgboost_build <- function(model, feature_names = NULL, params = li
   }
   learner <- onnx_internal_xgboost_document(model)
   learner$tidyonnx_target_levels <- target_levels
+  if (startsWith(learner$objective$name, "reg:")) {
+    return(onnx_internal_unrecognized_model(model,
+      "XGBoost regression conversion is not implemented."))
+  }
   if (!onnx_internal_xgboost_supported(learner)) {
     return(onnx_internal_unrecognized_model(model,
       "The booster, objective, split type, leaf shape, or target count is unsupported."))

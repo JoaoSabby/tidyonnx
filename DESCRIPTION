@@ -3,7 +3,7 @@ Title: Native ONNX Tree Ensemble Serialization and Inference
 Version: 0.1.0
 Authors@R: person("Joao B. G.", "de Brito", email = "joao@sabby.com.br",
     role = c("aut", "cre"))
-Description: Converts numerical XGBoost tree ensembles to the Open Neural
+Description: Converts supported numerical XGBoost classification ensembles to the Open Neural
     Network Exchange format and evaluates supported ONNX tree graphs through
     a self-contained C engine. Provides S7 model objects, automatic session
     restoration, and predictable tibble predictions using a cpp11 bridge.

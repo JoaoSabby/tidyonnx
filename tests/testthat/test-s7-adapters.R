@@ -82,7 +82,7 @@ test_that("unsupported booster configurations end with the implemented-format me
   expect_error(onnx_convert(list(), params = list(unknown = TRUE)), "Unknown params")
 })
 
-test_that("regression workflows retain formula blueprints", {
+test_that("regression workflows return an informative unsupported result", {
   skip_if_not_installed("workflows")
   skip_if_not_installed("parsnip")
   skip_if_not_installed("xgboost")
@@ -92,5 +92,5 @@ test_that("regression workflows retain formula blueprints", {
   workflow <- workflows::add_formula(workflows::workflow(), mpg ~ wt + hp)
   workflow <- workflows::add_model(workflow, specification)
   fit <- parsnip::fit(workflow, mtcars)
-  expect_equal(onnx_predict(onnx_convert(fit), mtcars), predict(fit, mtcars), tolerance = 3e-6)
+  expect_message(expect_null(onnx_convert(fit)), "regression conversion is not implemented")
 })

@@ -1,7 +1,6 @@
 # Reject unsupported model semantics before allocating a native conversion session.
 onnx_internal_xgboost_supported <- function(learner) {
-  objectives <- c("binary:logistic", "binary:logitraw", "reg:squarederror",
-    "reg:logistic", "multi:softprob", "multi:softmax")
+  objectives <- c("binary:logistic", "binary:logitraw", "multi:softprob", "multi:softmax")
   booster <- learner$gradient_booster
   trees <- booster$model$trees
   numeric_trees <- length(trees) > 0L && all(vapply(trees, function(tree) {
