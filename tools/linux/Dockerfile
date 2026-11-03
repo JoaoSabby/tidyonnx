@@ -20,6 +20,8 @@ RUN dnf -y --setopt=tsflags= install --skip-unavailable R-RcppEigen R-glmnet R-p
 FROM model-r AS intel-r
 COPY tools/linux/oneapi.repo /etc/yum.repos.d/oneapi.repo
 RUN dnf -y install intel-oneapi-compiler-dpcpp-cpp && dnf clean all
+# Intel's environment initialization inspects the current shell with ps.
+RUN dnf -y install procps-ng && dnf clean all
 
 FROM intel-r AS matrix
 WORKDIR /workspace
