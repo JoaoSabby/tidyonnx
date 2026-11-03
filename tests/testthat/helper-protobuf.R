@@ -1,5 +1,5 @@
 # Independent R wire helpers build external and malformed fixtures without the native encoder.
-wire_varint <- function(value) {
+onnx_internal_wire_varint <- function(value) {
   result <- raw()
   repeat {
     byte <- value %% 128
@@ -9,13 +9,13 @@ wire_varint <- function(value) {
   }
 }
 
-wire_message <- function(tag, value) {
-  c(wire_varint(tag * 8 + 2), wire_varint(length(value)), value)
+onnx_internal_wire_message <- function(tag, value) {
+  c(onnx_internal_wire_varint(tag * 8 + 2), onnx_internal_wire_varint(length(value)), value)
 }
 
-wire_fields <- function(bytes) {
+onnx_internal_wire_fields <- function(bytes) {
   position <- 1L
-  read_integer <- function() {
+  onnx_internal_read_integer <- function() {
     value <- 0
     multiplier <- 1
     repeat {
@@ -29,16 +29,16 @@ wire_fields <- function(bytes) {
   result <- list()
   while (position <= length(bytes)) {
     start <- position
-    key <- read_integer()
+    key <- onnx_internal_read_integer()
     tag <- floor(key / 8)
     wire <- key %% 8
     if (wire == 2) {
-      size <- read_integer()
+      size <- onnx_internal_read_integer()
       value <- if (size) bytes[position + seq_len(size) - 1L] else raw()
       position <- position + size
     } else if (wire == 0) {
       value_start <- position
-      read_integer()
+      onnx_internal_read_integer()
       value <- bytes[seq.int(value_start, position - 1L)]
     } else {
       size <- if (wire == 5) 4L else 8L
@@ -51,32 +51,33 @@ wire_fields <- function(bytes) {
   result
 }
 
-wire_edit_node <- function(bytes, edit) {
-  model <- wire_fields(bytes)
+onnx_internal_wire_edit_node <- function(bytes, edit) {
+  model <- onnx_internal_wire_fields(bytes)
   graph_index <- which(vapply(model, function(field) field$tag == 7, logical(1)))
-  graph <- wire_fields(model[[graph_index]]$value)
+  graph <- onnx_internal_wire_fields(model[[graph_index]]$value)
   node_index <- which(vapply(graph, function(field) field$tag == 1, logical(1)))[1L]
-  node <- edit(wire_fields(graph[[node_index]]$value))
-  graph[[node_index]]$raw <- wire_message(1, do.call(c, lapply(node, "[[", "raw")))
-  model[[graph_index]]$raw <- wire_message(7, do.call(c, lapply(graph, "[[", "raw")))
+  node <- edit(onnx_internal_wire_fields(graph[[node_index]]$value))
+  graph[[node_index]]$raw <- onnx_internal_wire_message(1, do.call(c, lapply(node, "[[", "raw")))
+  model[[graph_index]]$raw <- onnx_internal_wire_message(7, do.call(c, lapply(graph, "[[", "raw")))
   do.call(c, lapply(model, "[[", "raw"))
 }
 
-wire_edit_attribute <- function(bytes, name, values, unpacked = FALSE) {
-  wire_edit_node(bytes, function(node) {
-    for (index in seq_along(node)) {
-      if (node[[index]]$tag != 5) next
-      attribute <- wire_fields(node[[index]]$value)
+onnx_internal_wire_edit_attribute <- function(bytes, name, values, unpacked = FALSE) {
+  onnx_internal_wire_edit_node(bytes, function(node) {
+    # Each field is transformed independently; unrelated attributes remain unchanged.
+    lapply(node, function(field) {
+      if (field$tag != 5) return(field)
+      attribute <- onnx_internal_wire_fields(field$value)
       found_name <- rawToChar(attribute[[which(vapply(attribute,
         function(field) field$tag == 1, logical(1)))]]$value)
-      if (found_name != name) next
+      if (found_name != name) return(field)
       attribute <- Filter(function(field) field$tag != 8, attribute)
       payload <- if (unpacked) do.call(c, lapply(values, function(value) {
-        c(wire_varint(8 * 8), wire_varint(value))
-      })) else wire_message(8, do.call(c, lapply(values, wire_varint)))
-      node[[index]]$raw <- wire_message(5,
+        c(onnx_internal_wire_varint(8 * 8), onnx_internal_wire_varint(value))
+      })) else onnx_internal_wire_message(8, do.call(c, lapply(values, onnx_internal_wire_varint)))
+      field$raw <- onnx_internal_wire_message(5,
         c(do.call(c, lapply(attribute, "[[", "raw")), payload))
-    }
-    node
+      field
+    })
   })
 }

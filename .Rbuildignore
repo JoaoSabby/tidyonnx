@@ -6,5 +6,6 @@
 ^LICENSE\.md$
 ^ARCHITECTURE\.md$
 ^VALIDATION\.md$
+^DESIGN\.md$
 (^|/)src/.*\.(o|so|dll|a)$
 ^\.gitattributes$

@@ -32,6 +32,7 @@ struct Session {
   std::vector<float> base_values;
   std::vector<std::string> feature_names;
   std::vector<std::string> class_levels;
+  std::vector<std::string> target_levels;
   std::vector<std::string> output_names;
   std::string source_class = "external";
   std::string producer;

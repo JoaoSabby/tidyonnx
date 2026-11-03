@@ -1,0 +1,13 @@
+# Verify native inference in a fresh process without loading optional model adapters.
+arguments <- commandArgs(trailingOnly = TRUE)
+if (length(arguments) != 2L) stop("Usage: Rscript tools/validate-direct.R library model.onnx")
+.libPaths(c(normalizePath(arguments[[1L]], mustWork = TRUE), .libPaths()))
+library(tidyonnx)
+model <- onnx_load(arguments[[2L]])
+data <- matrix(c(0, 2, NA_real_), ncol = 1L)
+result <- onnx_predict(model, data)
+expected <- stats::plogis(stats::qlogis(0.3) + c(-0.7, 1.1, -0.7))
+stopifnot(isTRUE(all.equal(result[[2L]], expected, tolerance = 2e-7)))
+adapters <- c("xgboost", "workflows", "parsnip", "hardhat", "recipes")
+stopifnot(!any(adapters %in% loadedNamespaces()))
+cat("Direct native inference: PASS; optional model adapters were not loaded.\n")

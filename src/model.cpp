@@ -430,6 +430,14 @@ std::unique_ptr<Session> decode_model(const uint8_t* data, size_t size) {
     require(labels.size() == session->class_levels.size(), "Class metadata does not match the graph.");
     session->class_levels = labels;
   }
+  if (classifier && metadata.count("tidyonnx.target_levels")) {
+    session->target_levels = split_names(metadata["tidyonnx.target_levels"]);
+    auto ordered = session->target_levels;
+    auto encoded = session->class_levels;
+    std::sort(ordered.begin(), ordered.end());
+    std::sort(encoded.begin(), encoded.end());
+    require(ordered == encoded, "Target-level metadata must permute the graph's class labels.");
+  }
   for (const auto* names : {&session->feature_names, &session->class_levels}) {
     std::set<std::string> unique;
     for (const auto& name : *names) {

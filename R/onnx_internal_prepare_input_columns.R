@@ -1,5 +1,5 @@
 # Preserve R's existing column storage; the native evaluator reads it by stride.
-prepare_input_columns <- function(new_data, feature_names) {
+onnx_internal_prepare_input_columns <- function(new_data, feature_names) {
   if (is.matrix(new_data)) {
     if (!typeof(new_data) %in% c("double", "integer")) {
       stop("new_data must contain numeric or integer values.", call. = FALSE)

@@ -1,11 +1,11 @@
 # The cache environment survives object copies and is rehydrated after readRDS().
-model_from_bytes <- function(bytes, path, embed) {
-  session <- cpp_open_model(bytes)
-  info <- cpp_model_info(session)
+onnx_internal_model_from_bytes <- function(bytes, path, embed) {
+  session <- onnx_internal_cpp_open_model(bytes)
+  info <- onnx_internal_cpp_model_info(session)
   cache <- new.env(parent = emptyenv())
   cache$ptr <- session
   info$session_cache <- cache
-  onnx_model(
+  onnx_internal_model(
     session_ptr = session,
     model_path = path,
     raw_bytes = if (embed || !nzchar(path)) bytes else raw(),

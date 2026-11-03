@@ -387,6 +387,18 @@ class XgboostSerializer final : public Serializer {
       (specification.binary ? "classification_binary" : "classification_multiclass") : "regression");
     metadata_entry(model, "tidyonnx.feature_names", join_names(features));
     if (specification.classifier) metadata_entry(model, "tidyonnx.class_levels", join_names(levels));
+    // Preserve presentation order independently of the binary engine's class encoding.
+    SEXP target_levels = R_NilValue;
+    SEXP learner_names = Rf_getAttrib(learner, R_NamesSymbol);
+    for (R_xlen_t index = 0; index < learner.size(); ++index) {
+      if (std::strcmp(CHAR(STRING_ELT(learner_names, index)), "tidyonnx_target_levels") == 0) {
+        target_levels = learner[index];
+        break;
+      }
+    }
+    if (specification.classifier && target_levels != R_NilValue) {
+      metadata_entry(model, "tidyonnx.target_levels", join_names(cpp11::strings(target_levels)));
+    }
     metadata_entry(model, "tidyonnx.objective", objective_name);
     metadata_entry(model, "tidyonnx.binary_encoding", "explicit_two_class_scores_constant_intercept");
     return {std::move(model.bytes)};

@@ -1,5 +1,34 @@
 # Validation record
 
+## S7 architecture revision: 2026-11-02 (America/Sao_Paulo)
+
+The revision in branch `s7-conversion-architecture` was built and installed with
+R 4.6.0 and GCC/G++ 14.3.0 on Windows x64. The updated behavioral suite passed
+**182 expectations across 28 tests**, with zero failures, errors, warnings, or
+skips. The machine-readable current-run summary is
+`tools/evidence/s7-test-results.csv`.
+
+Checks include all six existing XGBoost objectives, S7 public dispatch and private
+naming, informative unsupported-source returns, unmodified destinations on failed
+recognition, binary workflow event encodings, multiclass recipe preprocessing,
+regression formula blueprints, RDS restoration, and ONNX class-order persistence.
+
+`tools/check-policy.R` passed: native-only runtime policy, no executable R for
+loops, and orienting comments in R scripts. `tools/validate-direct.R` passed in a
+fresh R process: ONNX load and inference did not load xgboost, workflows, parsnip,
+hardhat, or recipes.
+
+`R CMD build` succeeded. The final source archive passed
+`R CMD check --no-manual`: **Status: OK**, with zero errors, warnings, or notes.
+The log is `tools/evidence/s7-R-CMD-check.log`; the tested archive fingerprint is
+`tools/evidence/s7-archive-sha256.txt`.
+
+Cross-platform CI, a build without OpenMP, and independent reference-runtime
+execution have not been rerun for this revision. Their records below describe
+the historical baseline and do not validate these changes.
+
+## Historical baseline
+
 Validated on 2026-10-24 (America/Sao_Paulo).
 
 ## Executed checks

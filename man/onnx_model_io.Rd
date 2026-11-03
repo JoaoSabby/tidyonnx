@@ -4,8 +4,6 @@
 \alias{onnx_convert}
 \alias{onnx_predict}
 \alias{onnx_inspect}
-\alias{predict.tidyonnx::onnx_model}
-\alias{print.tidyonnx::onnx_model}
 \title{Convert, Save, Load, Predict, and Inspect ONNX Tree Models}
 \description{
 Converts numerical XGBoost tree ensembles to standard binary ONNX graphs,
@@ -24,8 +22,9 @@ onnx_predict(object, new_data, type = NULL, params = list())
 onnx_inspect(object, params = list())
 }
 \arguments{
-\item{model}{An \code{xgb.Booster} with a supported built-in objective, or an
-existing tidyonnx S7 model.}
+\item{model}{For conversion, a fitted \code{xgb.Booster}, an XGBoost parsnip fit,
+or a fitted XGBoost workflow. Saving also accepts an existing tidyonnx S7 model.
+ONNX objects are results and are not accepted by \code{onnx_convert()}.}
 \item{file}{One file path. The parent directory must exist.}
 \item{feature_names}{Optional unique predictor names, one per training feature.
 Defaults to the stored names, or \code{f0}, \code{f1}, and so on.
@@ -44,7 +43,10 @@ stored tree directions. Infinite values and non-numeric predictors fail.}
 }
 \value{
 \code{onnx_save()} returns the normalized destination path invisibly.
-\code{onnx_load()} and \code{onnx_convert()} return an S7 model.
+\code{onnx_load()} and successful \code{onnx_convert()} calls return an S7 model.
+Unrecognized source models produce a message listing implemented formats and
+return \code{NULL} invisibly; saving an unrecognized source does the same without
+writing a file. Invalid settings, corrupt models, and inference failures remain errors.
 \code{onnx_predict()} returns a tibble, except for \code{type = "raw"}, which
 returns a numeric vector for regression or a probability matrix for
 classification. Probability columns are named \code{.pred_\{level\}}.
@@ -55,6 +57,26 @@ Multiclass numeric output and regression class/probability output are rejected.
 inputs, outputs, features, and actual engine capabilities.
 }
 \details{
+All five public functions are S7 generics. Standard \code{predict()} and
+\code{print()} compatibility methods are registered through S7.
+
+Convert workflows after \code{fit()}. Their fitted hardhat blueprint is retained
+and applied to raw predictor data at prediction time. Save these complete R
+objects with \code{saveRDS()}; \code{onnx_save()} rejects workflow-derived objects
+because this engine cannot encode their preprocessing in ONNX. Workflow prediction
+requires hardhat and any packages used by the blueprint. Direct native-model
+prediction requires neither workflows nor parsnip.
+
+Parsnip conversion exports its fitted engine and expects engine-ready predictors;
+use workflow conversion to preserve preprocessing. Classification adapters support
+literal \code{event_level = "first"} and \code{"second"} settings; unresolved
+expressions end with an unsupported-model message. Probability columns and factor levels follow the fitted
+outcome order. Raw columns follow the ONNX graph order; binary numeric predictions
+refer to the engine's encoded class 1, identified by its event-level setting.
+Presentation order survives ONNX save/load through validated model metadata.
+Early-stopped source models are currently unsupported because portable tree-range
+serialization has not been implemented.
+
 Supported objectives are \code{binary:logistic}, \code{binary:logitraw},
 \code{reg:squarederror}, \code{reg:logistic}, \code{multi:softprob}, and
 \code{multi:softmax}. Conversion exports all stored trees from numerical
@@ -108,6 +130,7 @@ before evaluation. Output and thread workspace still allocate. Numerical
 equivalence is at float32 tolerance, rather than guaranteed bitwise identity.
 }
 \examples{
+# Train and convert a numerical binary model using only R and native libraries.
 if (requireNamespace("xgboost", quietly = TRUE)) {
   x <- as.matrix(iris[1:100, 1:4])
   y <- as.integer(iris$Species[1:100] == "versicolor")

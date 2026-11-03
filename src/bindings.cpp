@@ -19,7 +19,7 @@ tidyonnx::Session* checked_session(SEXP pointer) {
 }
 
 [[cpp11::register]]
-cpp11::writable::raws cpp_serialize_model(cpp11::list learner,
+cpp11::writable::raws onnx_internal_cpp_serialize_model(cpp11::list learner,
     cpp11::strings features, cpp11::strings levels, cpp11::doubles base_score,
     int opset, int ir_version) {
   // Registry entries are translation-unit adapters; the runtime never knows model classes.
@@ -36,7 +36,7 @@ cpp11::writable::raws cpp_serialize_model(cpp11::list learner,
 }
 
 [[cpp11::register]]
-cpp11::sexp cpp_open_model(cpp11::raws bytes) {
+cpp11::sexp onnx_internal_cpp_open_model(cpp11::raws bytes) {
   tidyonnx::require(bytes.size() > 0, "An ONNX model cannot be empty.");
   auto session = tidyonnx::decode_model(RAW(bytes), static_cast<size_t>(bytes.size()));
   cpp11::external_pointer<tidyonnx::Session> pointer(session.get());
@@ -46,14 +46,14 @@ cpp11::sexp cpp_open_model(cpp11::raws bytes) {
 }
 
 [[cpp11::register]]
-bool cpp_session_alive(SEXP pointer) {
+bool onnx_internal_cpp_session_alive(SEXP pointer) {
   return TYPEOF(pointer) == EXTPTRSXP &&
     R_ExternalPtrTag(pointer) == Rf_install("tidyonnx_session_v1") &&
     R_ExternalPtrAddr(pointer) != nullptr;
 }
 
 [[cpp11::register]]
-cpp11::writable::list cpp_model_info(SEXP pointer) {
+cpp11::writable::list onnx_internal_cpp_model_info(SEXP pointer) {
   using namespace cpp11::literals;
   const auto* model = checked_session(pointer);
   return cpp11::writable::list({
@@ -66,6 +66,7 @@ cpp11::writable::list cpp_model_info(SEXP pointer) {
     "label_type"_nm = model->label_type,
     "feature_names"_nm = r_strings(model->feature_names),
     "class_levels"_nm = r_strings(model->class_levels),
+    "target_levels"_nm = r_strings(model->target_levels),
     "input_name"_nm = model->input_name,
     "output_names"_nm = r_strings(model->output_names),
     "num_graph_nodes"_nm = model->num_graph_nodes,
@@ -76,7 +77,7 @@ cpp11::writable::list cpp_model_info(SEXP pointer) {
 }
 
 [[cpp11::register]]
-cpp11::sexp cpp_predict_model(SEXP pointer, SEXP data, cpp11::integers indices,
+cpp11::sexp onnx_internal_cpp_predict_model(SEXP pointer, SEXP data, cpp11::integers indices,
     int rows, int threads) {
   auto* model = checked_session(pointer);
   tidyonnx::require(rows >= 0 && threads >= 1 && threads <= 1024,

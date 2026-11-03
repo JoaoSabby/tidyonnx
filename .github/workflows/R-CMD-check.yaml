@@ -22,8 +22,10 @@ jobs:
           use-public-rspm: true
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck, any::xgboost
+          extra-packages: any::rcmdcheck, any::xgboost, any::workflows, any::parsnip, any::recipes
           needs: check
+      - name: Audit native-only and R source policy
+        run: Rscript tools/check-policy.R
       - uses: r-lib/actions/check-r-package@v2
         with:
           args: 'c("--no-manual")'

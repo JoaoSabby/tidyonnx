@@ -1,0 +1,39 @@
+name: Fedora binary logistic equivalence
+on:
+  push:
+    branches: [linux-binary-logistic-validation]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fedora:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve the current stable Fedora image
+        shell: bash
+        run: |
+          # Persist the resolved digest so the exact base image can be reproduced.
+          mkdir -p validation-results/linux-binary-logistic
+          docker pull registry.fedoraproject.org/fedora:latest
+          docker image inspect registry.fedoraproject.org/fedora:latest --format '{{index .RepoDigests 0}}' > validation-results/linux-binary-logistic/base-image.txt
+      - name: Build native R test environment
+        shell: bash
+        run: |
+          # Pin this build to the digest resolved by the previous step.
+          base_image=$(cat validation-results/linux-binary-logistic/base-image.txt)
+          docker build --build-arg FEDORA_IMAGE="$base_image" -f tools/linux/Dockerfile -t tidyonnx-fedora-validation . 2>&1 | tee validation-results/linux-binary-logistic/build.log
+      - name: Train, save, convert, predict, and compare
+        shell: bash
+        run: |
+          # Execute the ordered stages and preserve all predictions even if a comparison fails.
+          docker run --rm -e SOURCE_REVISION="$GITHUB_SHA" -v "$PWD/validation-results/linux-binary-logistic:/artifacts" tidyonnx-fedora-validation 2>&1 | tee validation-results/linux-binary-logistic/execution.log
+      - name: Upload models, predictions, comparison, and environment evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fedora-binary-logistic-${{ github.sha }}
+          path: validation-results/linux-binary-logistic
+          retention-days: 14
+          if-no-files-found: error

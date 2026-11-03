@@ -29,11 +29,10 @@ scenarios$num_classes <- 3L
 extra <- scenarios[5:6, ]
 extra$num_classes <- 2L
 scenarios <- rbind(scenarios, extra)
-results <- vector("list", nrow(scenarios))
 input_file <- file.path(output_directory, "features-float32.bin")
 # R writes column-major; transpose once to construct the reference runtime's row-major input.
 writeBin(as.numeric(t(x)), input_file, size = 4L, endian = "little")
-for (index in seq_len(nrow(scenarios))) {
+results <- lapply(seq_len(nrow(scenarios)), function(index) {
   scenario <- scenarios[index, ]
   objective <- scenario$objective
   multiclass <- startsWith(objective, "multi:")
@@ -72,16 +71,17 @@ for (index in seq_len(nrow(scenarios))) {
   native_xgb <- max(abs(as.numeric(native_matrix) - as.numeric(reference)))
   native_ort <- max(abs(native_matrix - ort))
   xgb_ort <- max(abs(as.numeric(reference) - as.numeric(ort)))
-  results[[index]] <- data.frame(
+  result <- data.frame(
     scenario = index, objective = objective, base_score = scenario$base,
     all_positive = scenario$all_positive, rows = nrow(x), outputs = ncol(native_matrix),
     max_abs_native_xgboost = native_xgb, max_abs_native_ort = native_ort,
     max_abs_xgboost_ort = xgb_ort, runtime = paste(status, collapse = " ")
   )
   if (max(native_xgb, native_ort, xgb_ort) > 5e-6) {
-    print(results[[index]]); print(head(cbind(native_matrix, ort, reference))); stop("Numerical reference validation failed for scenario ", index)
+    print(result); print(head(cbind(native_matrix, ort, reference))); stop("Numerical reference validation failed for scenario ", index)
   }
-}
+  result
+})
 result <- do.call(rbind, results)
 write.csv(result, file.path(output_directory, "runtime-equivalence.csv"), row.names = FALSE)
 print(result, row.names = FALSE)

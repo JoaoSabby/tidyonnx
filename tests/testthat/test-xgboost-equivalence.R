@@ -1,8 +1,9 @@
+# Verify observable model contracts with deterministic inputs.
 test_that("all six objectives match XGBoost with missing values and non-default intercepts", {
   objectives <- c("binary:logistic", "binary:logitraw", "reg:squarederror",
     "reg:logistic", "multi:softprob", "multi:softmax")
-  for (objective in objectives) {
-    fixture <- train_fixture(objective)
+  invisible(lapply(objectives, function(objective) {
+    fixture <- onnx_internal_train_fixture(objective)
     converted <- onnx_convert(fixture$model)
     native <- onnx_predict(converted, fixture$x, "raw")
     reference <- predict(fixture$model, fixture$data)
@@ -17,19 +18,19 @@ test_that("all six objectives match XGBoost with missing values and non-default 
         rep(1, nrow(fixture$x)), tolerance = 3e-7)
       expect_error(onnx_predict(converted, fixture$x, "numeric"), "multiclass")
     }
-  }
+  }))
 })
 
 test_that("binary base scores and parallel trees retain probabilities", {
-  for (base in c(0.15, 0.5, 0.85)) {
-    fixture <- train_fixture(base = base, parallel_trees = 3L)
+  invisible(lapply(c(0.15, 0.5, 0.85), function(base) {
+    fixture <- onnx_internal_train_fixture(base = base, parallel_trees = 3L)
     result <- onnx_predict(onnx_convert(fixture$model), fixture$x, "numeric")$.pred
     expect_equal(result, as.numeric(predict(fixture$model, fixture$data)), tolerance = 3e-6)
-  }
+  }))
 })
 
 test_that("feature order and human-readable class labels survive round trips", {
-  fixture <- train_fixture()
+  fixture <- onnx_internal_train_fixture()
   model <- onnx_convert(fixture$model,
     params = list(class_levels = c("absence", "presence")))
   frame <- as.data.frame(fixture$x[, 4:1])
@@ -71,7 +72,7 @@ test_that("two-class softmax preserves probabilities after symmetric score conve
   set.seed(73)
   x <- matrix(rnorm(500), ncol = 5)
   d <- xgboost::xgb.DMatrix(x, label = as.numeric(rowSums(x) > 0))
-  for (objective in c("multi:softprob", "multi:softmax")) {
+  invisible(lapply(c("multi:softprob", "multi:softmax"), function(objective) {
     model <- xgboost::xgb.train(list(objective = objective, num_class = 2L,
       max_depth = 3L, nthread = 1L, base_score = 0.3), d, nrounds = 8L, verbose = 0L)
     converted <- onnx_convert(model)
@@ -80,7 +81,7 @@ test_that("two-class softmax preserves probabilities after symmetric score conve
     scores <- exp(margins - apply(margins, 1L, max))
     expect_equal(as.numeric(raw), as.numeric(scores / rowSums(scores)), tolerance = 3e-6)
     expect_equal(converted@task_type, "classification_multiclass")
-  }
+  }))
 })
 
 test_that("UTF-8 feature metadata survives conversion under the C locale", {

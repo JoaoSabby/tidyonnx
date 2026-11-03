@@ -1,0 +1,9 @@
+# Exclude local Git metadata, native build products, and previous evidence output.
+.git
+**/*.o
+**/*.so
+**/*.dll
+**/*.a
+**/*.Rcheck
+**/*.tar.gz
+validation-results

@@ -1,5 +1,5 @@
 # Deterministic native fixtures exercise the package even when xgboost is absent.
-fixture_model <- function(objective = "binary:logistic", base = 0.3) {
+onnx_internal_fixture_model <- function(objective = "binary:logistic", base = 0.3) {
   tree <- list(
     tree_param = list(size_leaf_vector = "1"),
     left_children = list(1L, -1L, -1L),
@@ -15,13 +15,13 @@ fixture_model <- function(objective = "binary:logistic", base = 0.3) {
     gradient_booster = list(name = "gbtree", model = list(
       trees = list(tree), tree_info = list(0L)))
   )
-  bytes <- tidyonnx:::cpp_serialize_model(
+  bytes <- tidyonnx:::onnx_internal_cpp_serialize_model(
     learner, "temperature", c("absent", "present"), as.double(base), 18L, 8L
   )
-  tidyonnx:::model_from_bytes(bytes, "", TRUE)
+  tidyonnx:::onnx_internal_model_from_bytes(bytes, "", TRUE)
 }
 
-train_fixture <- function(objective = "binary:logistic", base = 0.3,
+onnx_internal_train_fixture <- function(objective = "binary:logistic", base = 0.3,
     rounds = 15L, parallel_trees = 1L) {
   skip_if_not_installed("xgboost")
   set.seed(428)

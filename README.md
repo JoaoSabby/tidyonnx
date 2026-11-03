@@ -1,9 +1,11 @@
 # tidyonnx
 
 Native ONNX serialization and CPU inference for numerical XGBoost tree models.
-The public interface uses S7 objects and returns tibbles.
+The five public operations use S7 dispatch and return validated model objects or
+tibble predictions. Private R functions use the `onnx_internal_` prefix.
 
 ```r
+# Save a fitted source model and predict through the native engine.
 library(tidyonnx)
 
 onnx_save(fitted_model, "model.onnx")
@@ -14,6 +16,7 @@ onnx_predict(model, new_data)
 Or convert directly in memory:
 
 ```r
+# Convert the fitted source directly without creating an intermediate file.
 fitted_model |>
   onnx_convert() |>
   onnx_predict(new_data, type = "prob")
@@ -25,6 +28,7 @@ Install R 4.3 or newer and a matching R development toolchain (Rtools on Windows
 Then install from source:
 
 ```r
+# Install the R dependencies and source package with the native toolchain.
 install.packages(c("S7", "tibble", "jsonlite", "cpp11"))
 install.packages("tidyonnx_0.1.0.tar.gz", repos = NULL, type = "source")
 ```
@@ -35,6 +39,36 @@ XGBoost is required only when converting a fitted `xgb.Booster`.
 Prediction and ONNX loading do not require it. Installation performs no downloads.
 Nanopb sources are included; neither a schema compiler nor an external inference
 library is required.
+
+## Tidymodels: convert after fitting
+
+Conversion is a deployment step after `fit()`, not a recipe step or a training
+engine. Pass a fitted workflow to retain its preprocessing:
+
+```r
+# Fit first; use your workflow specification and training/prediction data.
+fitted_workflow <- parsnip::fit(workflow_specification, data = training_data)
+onnx_model <- onnx_convert(fitted_workflow)
+onnx_predict(onnx_model, prediction_data, type = "prob")
+
+# Preserve the fitted blueprint and native model together as an R artifact.
+saveRDS(onnx_model, "workflow-model.rds")
+restored_model <- readRDS("workflow-model.rds")
+onnx_predict(restored_model, prediction_data, type = "class")
+```
+
+The fitted hardhat blueprint applies training recipe or formula preprocessing to
+new raw predictors. Prediction requires hardhat and packages used by that
+blueprint. `onnx_save()` rejects workflow-derived results because the current
+serializer cannot encode their preprocessing. Direct parsnip conversion exports
+the engine only and requires already prepared predictors; prefer the full
+workflow when preprocessing is part of the fit.
+
+Literal `event_level = "first"` and `"second"` settings are supported. Outcome
+labels and formatted probability order are preserved. Non-literal event
+expressions are rejected to avoid differing from parsnip's stored-expression
+prediction contract. Workflows and parsnip remain optional: the direct XGBoost
+route and ordinary ONNX inference do not load them.
 
 ## Model coverage
 
@@ -54,10 +88,18 @@ boosters and `num_parallel_tree` are supported. Categorical splits, DART,
 linear boosters, vector leaves, and multiple regression targets are rejected.
 Custom objectives cannot be reconstructed from a saved model; only the six
 stored built-in objective names above are supported.
+Early-stopped models are currently unsupported because effective tree-range
+serialization is not implemented. An unrecognized source class or unsupported
+format produces a message listing implemented formats and returns `NULL`
+invisibly. This ends the conversion call, not the calling script. Invalid
+arguments, corrupt models, and inference failures remain errors.
+`onnx_convert()` accepts fitted source models only; use `onnx_save()` to persist
+an already converted ONNX model.
 
 ## Predictions
 
 ```r
+# Select a prediction representation or inspect the validated graph.
 onnx_predict(model, new_data)                   # Probabilities, or numeric regression
 onnx_predict(model, new_data, type = "class")   # Factor .pred_class
 onnx_predict(model, new_data, type = "numeric") # Numeric .pred; binary positive probability
@@ -140,7 +182,9 @@ Documentation is maintained directly in `man/`; this version has no roxygen or
 Doxygen generation blocks. Run:
 
 ```r
+# Regenerate native registrations, audit source policy, and run behavioral tests.
 cpp11::cpp_register(".")
+source("tools/check-policy.R")
 testthat::test_local()
 ```
 
@@ -151,4 +195,5 @@ ONNX Runtime through its C API. That reference executable is a development tool
 and is never built or loaded by package installation.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for specification decisions and
-[VALIDATION.md](VALIDATION.md) for measured results and limitations.
+[DESIGN.md](DESIGN.md) for the detailed quality review and approved definitions.
+See [VALIDATION.md](VALIDATION.md) for measured results and limitations.

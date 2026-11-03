@@ -1,5 +1,15 @@
 # Architecture decisions
 
+## Current S7 and adapter decisions
+
+The approved public API, naming rules, source dispatch, fitted workflow support,
+and runtime constraints are specified in [DESIGN.md](DESIGN.md). All five public
+operations are S7 generics; private R bindings start with `onnx_internal_`.
+Conversion takes fitted source models only. Workflow blueprints are retained in
+R objects and require RDS persistence because standalone ONNX preprocessing
+serialization is outside the current graph subset. Existing native design details
+below continue to describe the engine and its portability contract.
+
 ## Conflicting attachment requirements
 
 The supplied specification simultaneously requires an ONNX Runtime/libprotobuf

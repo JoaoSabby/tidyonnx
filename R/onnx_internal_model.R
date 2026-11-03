@@ -1,5 +1,5 @@
 # The external pointer is owned by cpp11; raw bytes are the portable source of truth.
-onnx_model <- S7::new_class(
+onnx_internal_model <- S7::new_class(
   "onnx_model",
   package = "tidyonnx",
   properties = list(
