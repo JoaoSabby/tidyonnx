@@ -14,9 +14,10 @@ int tidyonnx_has_openmp(void) {
 #endif
 }
 
-/* Stable sigmoid preserves extreme margins and missing-value routing semantics. */
+/* Match the source's reciprocal arithmetic where expf is finite; preserve tiny tails. */
 static float logistic(float margin) {
-  if (margin >= 0.0f) return 1.0f / (1.0f + expf(-margin));
+  if (margin >= -88.7f) return 1.0f / (1.0f + expf(-margin));
+  /* The equivalent negative-tail form avoids overflowing expf for extreme margins. */
   float exponential = expf(margin);
   return exponential / (1.0f + exponential);
 }

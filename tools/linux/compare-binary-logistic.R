@@ -30,7 +30,8 @@ write.csv(comparison, file.path(output_directory, "prediction-comparison.csv"), 
 jsonlite::write_json(summary, file.path(output_directory, "comparison-summary.json"),
   auto_unbox = TRUE, pretty = TRUE, digits = 17L)
 print(summary)
-stopifnot(summary$numerically_equal, summary$classes_identical)
+# This deterministic acceptance fixture requires exact equality; tolerance is diagnostic only.
+stopifnot(summary$exact_bitwise_equality, summary$classes_identical)
 cat("Binary logistic equivalence: PASS. Exact bitwise equality:",
   summary$exact_bitwise_equality, "; maximum absolute difference:",
   format(summary$max_absolute_difference, digits = 17L), "\n")

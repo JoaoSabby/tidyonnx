@@ -1,11 +1,12 @@
 # Deterministic native fixtures exercise the package even when xgboost is absent.
-onnx_internal_fixture_model <- function(objective = "binary:logistic", base = 0.3) {
+onnx_internal_fixture_model <- function(objective = "binary:logistic", base = 0.3,
+    leaves = c(-0.7, 1.1)) {
   tree <- list(
     tree_param = list(size_leaf_vector = "1"),
     left_children = list(1L, -1L, -1L),
     right_children = list(2L, -1L, -1L),
     split_indices = list(0L, 0L, 0L),
-    split_conditions = list(1, -0.7, 1.1),
+    split_conditions = list(1, leaves[[1L]], leaves[[2L]]),
     default_left = list(TRUE, FALSE, FALSE),
     split_type = list(0L, 0L, 0L)
   )

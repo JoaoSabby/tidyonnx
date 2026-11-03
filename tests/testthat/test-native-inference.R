@@ -1,4 +1,12 @@
 # Verify observable model contracts with deterministic inputs.
+test_that("logistic arithmetic preserves representable extreme negative probabilities", {
+  model <- onnx_internal_fixture_model(leaves = c(-100, 100))
+  probability <- onnx_predict(model, matrix(c(0, 2), ncol = 1), "numeric")$.pred
+  expect_gt(probability[[1L]], 0)
+  expect_lt(probability[[1L]], 1e-42)
+  expect_identical(probability[[2L]], 1)
+})
+
 test_that("strict split boundaries and missing directions preserve the logistic model", {
   model <- onnx_internal_fixture_model()
   data <- matrix(c(0.999999, 1, 1.000001, NA_real_, NaN), ncol = 1)
