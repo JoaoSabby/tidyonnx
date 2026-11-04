@@ -38,9 +38,14 @@ if (!grepl("^[1-9][0-9]*$", jobs)) stop("TIDYONNX_BUILD_JOBS must be a positive 
 if (system2("make", paste0("-j", jobs)) != 0L || system2("make", "install") != 0L) {
   stop("Compilation or installation of the latest stable R release failed.")
 }
+# The bootstrap R home must not override the freshly compiled R installation.
+Sys.unsetenv(c("R_HOME", "R_ARCH", "R_SHARE_DIR", "R_INCLUDE_DIR", "R_DOC_DIR"))
 actual <- system2("/opt/R/latest/bin/Rscript",
   c("--vanilla", "-e", shQuote("cat(as.character(getRversion()))")), stdout = TRUE)
-if (!identical(actual, release$version)) stop("The installed R release is inconsistent.")
+if (!identical(actual, release$version)) {
+  stop("The installed R release is inconsistent: expected ", release$version,
+    "; received ", paste(actual, collapse = " "), ".")
+}
 jsonlite::write_json(list(fedora = fedora, r_version = actual,
   r_source_url = paste0(release$directory, release$archive),
   r_source_sha256 = sha256, r_checksum_announcement = published$announcement_url,
