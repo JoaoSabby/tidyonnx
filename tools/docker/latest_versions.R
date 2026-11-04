@@ -62,6 +62,14 @@ onnx_internal_assert_fedora_container <- function(check_latest = TRUE) {
       !file.exists("/etc/tidyonnx-test-container")) {
     stop("Use tools/run_fedora_tests.sh or tools/run_fedora_tests.ps1.", call. = FALSE)
   }
+  expected_profile <- "998a06d9f8531fe4179b8bfe993f8b29529cd441d0e6073d48dbdfa7161c74a0"
+  marker <- "/etc/tidyonnx-intel-profile"
+  if (!file.exists(marker) ||
+      !identical(readLines(marker, warn = FALSE), expected_profile) ||
+      Sys.getenv("R_MAKEVARS_USER") != "/opt/tidyonnx/intel_profile.mk") {
+    stop("Validation requires the Intel reference image and supplied Makevars profile.",
+      call. = FALSE)
+  }
   if (check_latest) {
     latest_fedora <- onnx_internal_latest_fedora()
     latest_r <- onnx_internal_latest_r()$version

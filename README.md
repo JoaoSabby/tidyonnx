@@ -200,3 +200,8 @@ See [the Fedora test guide](tools/docker/README.md) for version discovery,
 provenance, phases and prerequisites. GitHub Actions builds and runs the Fedora
 container; Docker on PC-TOHP2 is optional. The previous 280-expectation
 Windows result is historical and is not a Fedora result.
+
+## Intel reference validation
+
+The reference uses latest stable Fedora/R in Docker, Intel oneAPI and the supplied
+Makevars.001 profile. See tools/docker/README.md and VALIDATION.md for details.

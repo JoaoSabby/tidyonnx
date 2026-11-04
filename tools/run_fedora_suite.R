@@ -9,6 +9,15 @@ if (!dir.exists(evidence) || file.access(evidence, 2L) != 0L) {
 }
 file.copy("/opt/tidyonnx/environment.json", file.path(evidence, "image-environment.json"),
   overwrite = TRUE)
+file.copy("/opt/tidyonnx/intel-environment.json",
+  file.path(evidence, "intel-environment.json"), overwrite = TRUE)
+file.copy("/opt/tidyonnx/profile/Makevars.001",
+  file.path(evidence, "Makevars.001"), overwrite = TRUE)
+file.copy("/opt/tidyonnx/intel_profile.mk",
+  file.path(evidence, "intel_profile.mk"), overwrite = TRUE)
+file.copy("/opt/tidyonnx/intel_tools.mk",
+  file.path(evidence, "intel_tools.mk"), overwrite = TRUE)
+file.copy("/proc/cpuinfo", file.path(evidence, "cpuinfo.txt"), overwrite = TRUE)
 provenance <- list(fedora = onnx_internal_fedora_version(),
   r_version = as.character(getRversion()), runtime_version = "1.31.1",
   platform = R.version$platform, started_utc = format(Sys.time(), tz = "UTC", usetz = TRUE))
@@ -20,7 +29,8 @@ onnx_internal_test_path <- function() {
   directory <- tempfile("test-bin-")
   dir.create(directory)
   commands <- c("R", "Rscript", "sh", "bash", "env", "make", "cmake", "gcc", "g++",
-    "gfortran", "cc", "c++", "ar", "as", "ld", "ranlib", "nm", "strip", "objdump",
+    "gfortran", "icx", "icpx", "ifx", "ccache", "llvm-ar", "llvm-nm", "llvm-ranlib",
+    "cc", "c++", "ar", "as", "ld", "ranlib", "nm", "strip", "objdump",
     "readelf", "strings", "file", "pkg-config", "tar", "gzip", "bzip2", "xz", "unzip",
     "curl", "git", "sha256sum", "ldd", "getconf", "nproc", "uname", "which", "cat",
     "ls", "cp", "mv", "rm", "mkdir", "rmdir", "chmod", "touch", "ln", "install",
@@ -116,8 +126,8 @@ onnx_internal_phase("focused", {
 }, requires = "install")
 onnx_internal_phase("independent", {
   executable <- file.path(evidence, "validate_runtime")
-  onnx_internal_command("g++", c("-std=c++17", "-O3", "-I", shQuote("src/ort_include"),
-    shQuote("tools/validate_runtime.cpp"), "-o", shQuote(executable), "-ldl"),
+  onnx_internal_command("make", c("-f", shQuote("/opt/tidyonnx/intel_tools.mk"),
+    "validator", paste0("SOURCE_DIR=", shQuote(repo)), paste0("VALIDATOR=", shQuote(executable))),
     "independent-build.log")
   runtime <- system.file("ort", "libonnxruntime.so.1.31.1", package = "tidyonnx")
   onnx_internal_command(rscript, c("--vanilla", shQuote("tools/validate_runtime.R"),
@@ -176,7 +186,13 @@ onnx_internal_phase("package_check", {
 }, requires = "build")
 utils::write.csv(as.data.frame(utils::installed.packages()),
   file.path(evidence, "installed-packages.csv"), row.names = FALSE)
-onnx_internal_command("g++", "--version", "compiler-version.txt")
+onnx_internal_command("icx", "--version", "c-compiler-version.txt")
+onnx_internal_command("icpx", "--version", "cxx-compiler-version.txt")
+onnx_internal_command("ifx", "--version", "fortran-compiler-version.txt")
+onnx_internal_command("ldd", shQuote(file.path(R.home("lib"), "libR.so")),
+  "r-native-dependencies.txt")
+onnx_internal_command("sha256sum", shQuote("/opt/tidyonnx/profile/Makevars.001"),
+  "profile-sha256.txt")
 configuration <- file.path(evidence, "test-configuration")
 dir.create(configuration, showWarnings = FALSE)
 file.copy("tools", configuration, recursive = TRUE)

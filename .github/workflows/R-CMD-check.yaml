@@ -1,4 +1,4 @@
-name: Fedora-Docker-check
+name: Fedora-Intel-reference-check
 on:
   push:
   pull_request:
@@ -8,15 +8,15 @@ permissions:
 jobs:
   fedora:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
-      - name: Run every validation inside the latest Fedora and R container
+      - name: Run Intel reference validation inside latest Fedora and R
         run: sh tools/run_fedora_tests.sh
       - name: Retain environment provenance and validation logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: fedora-validation
+          name: fedora-intel-validation
           path: validation-results/fedora/
           if-no-files-found: warn

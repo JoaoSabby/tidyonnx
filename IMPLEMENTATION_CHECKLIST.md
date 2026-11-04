@@ -1,8 +1,20 @@
-> Historical acceptance record: the user now requires all validation in the latest
-> stable Fedora/R Docker environment. The results below were established on the
-> previous Windows implementation. Fedora execution is pending Docker availability;
-> no completed Windows test item is being presented as a successful Fedora run.
+> Historical acceptance record: the current reference requires the latest stable
+> Fedora/R Docker environment, Intel oneAPI and the supplied Makevars.001 profile.
+> The completed items below describe the previous Windows implementation.
+> Intel reference execution is pending; these items do not claim Intel success.
 > See tools/docker/README.md and the current section of VALIDATION.md.
+
+# Current reference transition checklist
+
+| Item | Status | Evidence or limitation |
+| --- | --- | --- |
+| Preserve the supplied profile and verify its SHA-256. | completed | Unchanged reference copied; mandatory image hash check. |
+| Configure latest Fedora/R and Intel for R, source dependencies and package builds. | completed | Dockerfile, profile adapter and bootstrap configuration; execution pending. |
+| Retain profile optimization settings and avoid silent fallbacks. | completed | Full original profile included; missing compiler, ISA or release metadata fails. |
+| Run on a CPU supporting the profile and verify AVX-512 execution. | blocked | Requires the Intel reference run and its execution artifacts. |
+| Complete installation, all tests, independent predictions and package checks in Intel Docker. | blocked | Pending Intel reference run; earlier Windows/GCC results are historical. |
+| Rebuild the upstream ONNX Runtime binary with Intel. | not applicable | Contract pins the official precompiled Microsoft release. |
+| Merge main or publish a package release. | not applicable | Testing is confined to a separate branch. |
 
 # Implementation checklist
 

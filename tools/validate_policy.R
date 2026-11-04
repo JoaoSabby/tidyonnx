@@ -7,7 +7,9 @@ files <- unlist(lapply(directories, list.files, recursive = TRUE, full.names = T
 files <- files[grepl("\\.(R|cpp|c|h|md|csv|yaml|ps1|sh)$", files)]
 files <- files[!grepl("/(nanopb|proto_generated|ort_include)/", files)]
 files <- unique(c(files, "DESCRIPTION", "NAMESPACE", "README.md", "ARCHITECTURE.md",
-  "VALIDATION.md", "NEWS.md", "configure", "configure.win", "cleanup", "cleanup.win", "tools/docker/Dockerfile", ".dockerignore"))
+  "VALIDATION.md", "NEWS.md", "configure", "configure.win", "cleanup", "cleanup.win", "tools/docker/Dockerfile", "tools/docker/intel_profile.mk",
+  "tools/docker/intel_tools.mk",
+  "tools/docker/reference/Makevars.001", "tools/docker/oneapi.repo", ".dockerignore"))
 excluded_word <- paste0("py", "thon")
 for (file in files) {
   lines <- readLines(file, warn = FALSE)

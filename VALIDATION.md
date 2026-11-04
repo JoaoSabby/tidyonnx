@@ -1,26 +1,32 @@
-# Current policy: Fedora Docker only
+# Current reference: Fedora Docker with Intel and supplied Makevars
 
-As of 2026-11-03, the user has changed the canonical validation target to Docker
-with the latest stable Fedora and latest stable CRAN R. The configured pipeline
-resolves official release metadata, records exact versions and runs all validation
-inside that container. The ONNX Runtime 1.31.1 pin remains unchanged.
+As of 2026-11-04, the reference is the latest stable Fedora and latest stable
+CRAN R, compiled with Intel oneAPI using the supplied Makevars.001 profile.
+GitHub Actions runs all package validation inside that Docker container.
+ONNX Runtime remains the official precompiled 1.31.1 CPU release.
 
-**Execution status: pending the first GitHub Actions run.** The user selected
-GitHub as the Docker test host. All package validation will run in the Fedora
-container there; local Docker and SSH server configuration are unnecessary.
-Source/configuration review alone cannot establish container success.
+The unchanged profile is tools/docker/reference/Makevars.001. SHA-256:
+998a06d9f8531fe4179b8bfe993f8b29529cd441d0e6073d48dbdfa7161c74a0.
+The adapter only resolves container paths and the C17 compiler hook. The original
+Cascade Lake/AVX-512, fast arithmetic, FMA, flush-to-zero, LTO and OpenMP settings
+are preserved. There is no automatic compiler or architecture fallback.
 
-Fedora 45 and R 4.6.2 were confirmed from official metadata when preparing this
-configuration. Each future run checks for newer stable releases and fails
-explicitly rather than silently selecting older versions.
+**Intel execution status: pending the first Intel reference run.**
+CPU checks and compilation alone cannot establish numerical acceptance.
+Existing numerical tolerances, missing-value tests and the strict package-check
+gate remain unchanged. The two known Rd warnings are not waived.
 
-Use tools/run_fedora_tests.ps1 or tools/run_fedora_tests.sh. Logs and provenance
-will be written to a unique validation-results/fedora/<run-id>/ directory.
-The existing Rd warnings remain subject to the strict package-check gate.
+The earlier GCC preparation run 41783842103 compiled R 4.6.2 on Fedora 45 but
+stopped at the installed-version probe before package tests. The bootstrap R
+environment isolation was corrected for the following run. That GCC run is
+auxiliary evidence and cannot approve the Intel reference.
 
-The record below belongs to the earlier Windows validation at commit 2d894b7.
-Its commands and results are historical; they do not validate the changed
-Docker tooling. The earlier executor bodies are available in that Git revision.
+Each launch resolves official latest stable release metadata. Logs and provenance
+are retained in validation-results/fedora/<run-id>/ and GitHub Actions artifacts.
+See tools/docker/README.md for commands, compiler scope and evidence contents.
+
+The following record describes the earlier Windows implementation at 2d894b7.
+Its results are historical and do not validate the Intel Docker configuration.
 
 ---
 

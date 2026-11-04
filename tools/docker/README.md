@@ -1,32 +1,48 @@
-# Fedora Docker validation
+# Fedora and Intel reference validation
 
-All canonical tidyonnx validation runs inside one Docker Linux container with
-the latest stable Fedora release and the latest stable CRAN R release. GitHub
-Actions is the selected execution host. Its Ubuntu runner launches Docker;
-package installation, tests and checks execute inside the Fedora container.
-The ONNX Runtime dependency remains pinned to 1.31.1.
+The reference environment is a Docker container containing the latest stable
+Fedora release, the latest stable CRAN R release compiled with Intel, and Intel
+oneAPI icx, icpx and ifx. GitHub Actions launches the container. Its Ubuntu host
+does not execute package validation. ONNX Runtime remains pinned to 1.31.1.
 
-## GitHub execution
+## Supplied profile
 
-The workflow .github/workflows/R-CMD-check.yaml runs on push, pull requests and
-manual dispatch. It invokes tools/run_fedora_tests.sh and retains artifacts
-even if a validation phase fails. The validation branch is separate from main.
-No merge or package release is performed by the workflow.
+The unchanged reference is tools/docker/reference/Makevars.001, copied from the
+user-supplied file. Its SHA-256 is
+998a06d9f8531fe4179b8bfe993f8b29529cd441d0e6073d48dbdfa7161c74a0.
 
-Each launch resolves the current stable Fedora version from official metadata,
-pulls registry.fedoraproject.org/fedora:<release>, and builds without cached
-layers. The distribution R bootstraps compilation of the latest stable CRAN R
-source into /opt/R/latest. The source SHA-256 must match the official R Core
-release announcement before extraction and compilation.
+The adapter intel_profile.mk resolves the installed oneAPI compiler, MKL and
+TBB directories and explicitly selects Intel for packages requesting C17.
+It preserves the profile's optimization settings, including Cascade Lake,
+512-bit vectors, fast floating-point arithmetic, FMA, flush-to-zero, full LTO
+and Intel OpenMP. Optional controls retain their supplied defaults.
+The original file is reference material; its comments are not newly authored
+package comments and its fallback suggestions are not executed.
 
-A stale image, missing checksum, unavailable metadata or failed download stops
-the run explicitly. No older-release or host-execution fallback is allowed.
-Both OS and R versions are checked again before the package tests begin.
+There is no automatic fallback to GCC, a conservative arithmetic profile,
+another architecture or an older OS/R release. The latest Fedora is not assumed
+to be certified by Intel; actual installation and execution must establish
+compatibility. Signed oneAPI packages come from Intel's official DNF repository.
+The image verifies CPU feature exposure and executes an AVX-512 VNNI probe
+before compiling R. A container cannot supply instructions absent from its host.
 
-## Local and remote Docker launchers
+R, source dependencies, tidyonnx and the independent C API validator use the
+Intel profile. The downloaded Microsoft ONNX Runtime library is the official
+precompiled release; this workflow does not rebuild that dependency with Intel.
 
-Local Docker is optional when GitHub Actions is used. The same suite can be
-launched manually from the repository root with a Docker Linux engine:
+## Execution
+
+.github/workflows/R-CMD-check.yaml runs on push, pull requests and manual
+dispatch. It invokes tools/run_fedora_tests.sh and retains artifacts even
+when a phase fails. The testing branch is separate from main. No merge or
+package release is performed.
+
+Each launch resolves stable Fedora from official metadata and builds without
+cached layers. Distribution R only bootstraps compilation of the current CRAN
+source into /opt/R/latest. Its SHA-256 must match the official R Core release
+announcement before extraction. OS and R versions are checked again at run time.
+
+The same suite can use a local or remote Docker Linux engine:
 
 ```powershell
 pwsh -NoProfile -File tools/run_fedora_tests.ps1
@@ -36,37 +52,33 @@ pwsh -NoProfile -File tools/run_fedora_tests.ps1
 sh tools/run_fedora_tests.sh
 ```
 
-The shell launcher requires curl. A configured remote Docker context can also
-be used: source is sent as a build context and evidence is copied through Docker,
-without assuming a shared host filesystem. Compatibility R entry points
+Source is sent as a build context and evidence is copied through Docker,
+without requiring a shared host filesystem. Compatibility R entry points
 tools/validate_local.R and tools/validate_check.R delegate to these launchers.
 
-## Validation phases
+## Validation and evidence
 
-The suite executes source build, normal package installation, every testthat
-test, independent C API parity scenarios, fresh-process persistence and namespace
-checks, benchmarks, native dependency inspection, source policy gates and
-R CMD check. Installation and tests use a command PATH excluding the prohibited
-interpreter. The runtime pin and numerical tolerances remain unchanged.
+The suite runs source build, normal installation, every testthat case, independent
+C API parity scenarios, fresh-process persistence and namespace checks, benchmarks,
+native dependency inspection, source policy checks and R CMD check. Installation
+and validation use a PATH excluding the prohibited interpreter.
 
-Independent phases continue after a failure. Dependent phases are marked blocked.
-Warnings and notes keep the final package-check gate unsuccessful; the existing
-two documentation warnings are not waived by the Docker transition.
+The aggressive arithmetic profile can change numeric results. Existing numerical
+tolerances and missing-value tests remain unchanged. A compilation or CPU probe
+alone is not acceptance evidence. Independent phases continue after failures;
+dependent phases become blocked. Package-check warnings and notes fail the gate.
 
-## Evidence and current status
+Artifacts include the exact profile and its hash, evaluated compiler variables,
+compiler versions, CPU information, image identity, R source hash, package versions,
+per-phase logs, expectation counts, prediction comparisons and benchmarks.
+GitHub uploads them as fedora-intel-validation under each Actions run.
 
-Evidence is retained under validation-results/fedora/<UTC-run-id>/ and uploaded
-as the fedora-validation workflow artifact. It includes image identities,
-release/source hashes, configuration snapshots, installed package versions,
-compiler details, per-phase logs, expectation counts, timings, native dependencies
-and package-check results.
-
-No successful Fedora result is claimed until the actual GitHub run completes.
-The earlier Windows 280-expectation result remains historical. Review the current
-section of VALIDATION.md and the run artifact for authoritative execution results.
+See the current section of VALIDATION.md for executed results. Earlier Windows
+or GCC evidence does not establish success for this reference environment.
 
 ## Official sources
 
 - https://fedoraproject.org/releases.json
 - https://cran.r-project.org/src/base/
 - https://stat.ethz.ch/pipermail/r-announce/
+- https://www.intel.com/content/www/us/en/developer/tools/oneapi/oneapi-toolkit-download.html

@@ -1,0 +1,1143 @@
+# ═════════════════════════════════════════════════════════════════════════════════════════════════
+# Makevars.001. - Intel oneAPI LLVM (Perfil Agressivo de Desempenho Maximo)
+# ═════════════════════════════════════════════════════════════════════════════════════════════════
+#
+# [ OBJETIVO ARQUITETURAL ]
+#   Este arquivo instrui a cadeia de compilacao LLVM da Intel (icx, icpx, ifx) a extrair o
+#   desempenho maximo do hardware local. O perfil e agressivo: autoriza transformacoes que alteram
+#   resultados numericos apenas em decimais distantes (reassociacao, contracao FMA, flush-to-zero,
+#   funcoes matematicas vetoriais SVML). Transformacoes capazes de produzir resultados incorretos
+#   em codigo valido permanecem desligadas por padrao e sao expostas por controles operacionais.
+#
+# [ CADEIA DE CONTINGENCIA ]
+#   Este e o primeiro nivel da cadeia de Makevars. Em caso de falha de compilacao, a instalacao
+#   deve ser reexecutada com o proximo nivel:
+#     01 Makevars_01.intel : Intel agressivo (este arquivo)
+#     02 Makevars_02.intel : Intel conservador
+#     03 Makevars_03.gcc   : GCC de alto desempenho
+#     04 Makevars_04.gcc   : GCC minimo, sem otimizacao, que nao falha
+#
+# [ INFRAESTRUTURA ]
+#   * Sistema Operacional : Oracle Linux 9.7 (compativel com RHEL)
+#   * Hardware Base       : Servidor com arquitetura NUMA
+#   * Processador         : Intel Xeon Platinum 8260 (2nd gen, Cascade Lake)
+#   * Especificacoes      : 2 sockets, 48 nucleos fisicos totais, 96 threads
+#   * Instrucoes Nativas  : Intel SSE4.2, AVX, AVX2, AVX-512
+#   * Unidades FMA        : 4 unidades Fused Multiply-Add (AVX-512)
+#   * Memoria RAM         : 1.4 TB DDR4-2933
+#   * Ecossistema R       : versao 4.6.1, compilado com Intel, C em padrao C23
+#
+# [ COMPONENTES INTEL ONEAPI ATIVOS ]
+#   * Intel OpenMP        : Paralelismo de memoria compartilhada (libiomp5)
+#   * Intel oneMKL        : Math Kernel Library para algebra linear, BLAS e LAPACK
+#   * Intel oneTBB        : Threading Building Blocks para escalonamento C++
+#   * Intel TCM           : Thread Composability Manager para evitar oversubscription
+#   * Intel oneMPI        : Message Passing Interface para a arquitetura NUMA
+#   * Intel oneDPL        : Algoritmos paralelos (sort, transform, reduce) para C++
+#   * Compiladores Intel  : icx (C), icpx (C++), ifx (Fortran), suite oneAPI 2026
+#
+# [ COMPONENTES DE COMPILACAO ]
+#   * ccache              : Acelera recompilacoes C e C++ reaproveitando objetos ja compilados
+#
+# [ DECISOES DE SEGURANCA NUMERICA ]
+#   * Permitido  : fp-model fast, contracao FMA, flush-to-zero, SVML, reassociacao de reducoes
+#   * Proibido   : finite-math-only e qualquer supressao de NaN, pois o R representa NA_real_
+#                  como payload de NaN e a semantica de NA seria destruida
+#   * Controlado : a assuncao de ausencia de dependencias entre iteracoes de loop e exposta pelo
+#                  controle CONF_NOALIAS e deve ser usada apenas em pacotes numericos auditados
+#
+# ═════════════════════════════════════════════════════════════════════════════════════════════════
+
+# Informa qual Makevars esta sendo usado
+$(shell printf '\033[36m[Makevars.001. - Intel oneAPI LLVM (Perfil Agressivo de Desempenho Maximo)]\033[0m\n' >&2)
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# CONTROLES OPERACIONAIS
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# Os controles abaixo ativam recursos avancados sem alterar o corpo do arquivo. O padrao mantem
+# LTO ligado em modo full, relatorios desligados, PGO e HWPGO desligados, hardening desligado e
+# strip desligado. Essa combinacao preserva desempenho sem tornar os builds fragilizados ou
+# ruidosos. Cada controle pode ser definido por variavel de ambiente na chamada do R CMD INSTALL.
+#   CONF_PGO   : off | generate | use   (PGO instrumentado classico, duas etapas)
+#   CONF_HWPGO : off | generate | use   (PGO por amostragem de hardware, sem instrumentacao)
+#   CONF_PGO e CONF_HWPGO sao mutuamente exclusivos; se ambos forem definidos, PGO prevalece
+CONF_REPORT      ?= off
+CONF_PGO         ?= off
+CONF_HWPGO       ?= off
+CONF_LTO         ?= on
+CONF_LTO_MODE    ?= full
+CONF_NOALIAS     ?= off
+CONF_HARDENING   ?= off
+CONF_STRIP       ?= off
+CONF_BOLT        ?= off
+CONF_LLD         ?= off
+CONF_ENZYME      ?= off
+CONF_POLLY       ?= off
+CONF_PSTL        ?= off
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# VARIAVEIS DE AMBIENTE ESPERADAS
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# As variaveis abaixo normalmente chegam exportadas pelo bootstrap do ambiente HPC
+# (config_hpc_R.sh). Os valores padrao permitem uso standalone deste arquivo sem o bootstrap.
+ONEAPI_ROOT  ?= /opt/hpc/oneapi
+COMPILER_BIN ?= $(ONEAPI_ROOT)/compiler/latest/bin
+COMPILER_LIB ?= $(ONEAPI_ROOT)/compiler/latest/lib
+MKL_ROOT     ?= $(ONEAPI_ROOT)/mkl/latest
+MKL_LIB      ?= $(MKL_ROOT)/lib/intel64
+TBB_LIB      ?= $(ONEAPI_ROOT)/tbb/latest/lib/intel64/gcc4.8
+CCACHE_BIN   ?= /usr/bin/ccache
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# LLVM CUSTOM AUXILIAR
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# A arvore LLVM custom fica disponivel como caixa de ferramentas auxiliar. Ela nao substitui
+# icx, icpx ou ifx neste perfil. Seu uso principal e disponibilizar lld, BOLT, Polly, Enzyme e
+# utilitarios LLVM para testes controlados.
+LLVM_CUSTOM_ROOT = /opt/llvm
+LLVM_CUSTOM_BIN  = $(LLVM_CUSTOM_ROOT)/bin
+LLVM_CUSTOM_LIB  = $(LLVM_CUSTOM_ROOT)/lib
+
+LLVM_BOLT        = $(LLVM_CUSTOM_BIN)/llvm-bolt
+PERF2BOLT        = $(LLVM_CUSTOM_BIN)/perf2bolt
+MERGE_FDATA      = $(LLVM_CUSTOM_BIN)/merge-fdata
+LD_LLD           = $(LLVM_CUSTOM_BIN)/ld.lld
+OPT_LLVM         = $(LLVM_CUSTOM_BIN)/opt
+CLANG_CUSTOM     = $(LLVM_CUSTOM_BIN)/clang
+CLANGXX_CUSTOM   = $(LLVM_CUSTOM_BIN)/clang++
+
+ENZYME_LIB          = $(LLVM_CUSTOM_LIB)/Enzyme
+ENZYME_CLANG_PLUGIN = $(firstword $(wildcard $(ENZYME_LIB)/ClangEnzyme-*.so))
+PSTL_INCLUDE        = $(LLVM_CUSTOM_ROOT)/include
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# COMPILADORES E FERRAMENTAS BINARIAS
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# Os compiladores C e C++ usam ccache para acelerar recompilacoes. O Fortran fica sem ccache para
+# reduzir variacao operacional em pacotes legados. As ferramentas llvm-ar, llvm-ranlib e llvm-nm
+# sao obrigatorias para manipular objetos LTO em bitcode gerados por icx, icpx e ifx.
+CC      = $(CCACHE_BIN) $(COMPILER_BIN)/icx
+CXX     = $(CCACHE_BIN) $(COMPILER_BIN)/icpx
+CXX17   = $(CCACHE_BIN) $(COMPILER_BIN)/icpx
+CXX20   = $(CCACHE_BIN) $(COMPILER_BIN)/icpx
+CXX23   = $(CCACHE_BIN) $(COMPILER_BIN)/icpx
+CXX26   = $(CCACHE_BIN) $(COMPILER_BIN)/icpx
+
+FC      = $(COMPILER_BIN)/ifx
+F77     = $(COMPILER_BIN)/ifx
+
+# Executa apenas a etapa de pre-processamento C. O R usa CPP para expandir macros e includes
+# antes de algumas verificacoes de compilacao
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/preprocessor-options.html
+CPP     = $(CC) -E
+
+# Executa apenas a etapa de pre-processamento C++. Mantem coerencia com o compilador C++ Intel
+# definido em CXX
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/preprocessor-options.html
+CXXCPP  = $(CXX) -E
+
+AR      = $(COMPILER_BIN)/compiler/llvm-ar
+RANLIB  = $(COMPILER_BIN)/compiler/llvm-ranlib
+NM      = $(COMPILER_BIN)/compiler/llvm-nm
+ARFLAGS = rcs
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# PADROES DE LINGUAGEM
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# Os padroes de linguagem ficam separados dos compiladores. Nao se define CXX_STD global, pois
+# cada pacote R deve declarar o padrao necessario em seu proprio src/Makevars. O uso da variante
+# gnu preserva extensoes GNU comuns em pacotes R.
+
+# Define C em GNU C23 para alinhar a compilacao de pacotes ao R instalado em C23. Atencao: em
+# modo C23 a chamada de funcao sem declaracao previa e erro nao contornavel; pacotes legados que
+# dependem de declaracao implicita devem cair para o proximo nivel da cadeia de Makevars
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/language-options.html
+CCSTD = -std=gnu23
+
+# Define o padrao C++ principal como GNU C++23. Esse e o ponto de equilibrio para Rcpp, cpp11,
+# Eigen, Armadillo, xgboost, lightgbm e pacotes C++ modernos. Pacotes que usam APIs removidas de
+# padroes antigos devem declarar CXX_STD proprio ou cair para o proximo nivel da cadeia
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/language-options.html
+CXXSTD = -std=gnu++23
+
+# Define a variante C++17 consumida pelo R quando o pacote informa CXX_STD = CXX17
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/language-options.html
+CXX17STD = -std=gnu++17
+
+# Disponibiliza C++20 para pacotes que exigem esse padrao de forma explicita
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/language-options.html
+CXX20STD = -std=gnu++20
+
+# Disponibiliza C++23 para pacotes recentes que o solicitarem via CXX_STD = CXX23
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/language-options.html
+CXX23STD = -std=gnu++23
+
+# Disponibiliza C++26 para pacotes que o solicitarem, quando a versao do R definir CXX26
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/language-options.html
+CXX26STD = -std=gnu++26
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# ARQUITETURA ALVO
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+OPT_ARCH =
+
+# Gera codigo para Cascade Lake. Neste servidor, essa escolha permite explorar as extensoes da CPU
+# local, incluindo AVX2, AVX-512, FMA e instrucoes associadas ao Xeon Platinum 8260
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/march.html
+OPT_ARCH += -march=cascadelake
+
+# Ajusta heuristicas de escalonamento, latencia e selecao de instrucoes para Cascade Lake. A flag
+# otimiza a forma de usar a microarquitetura sem alterar o conjunto basico ja definido por march
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/mtune-tune.html
+OPT_ARCH += -mtune=cascadelake
+
+# Orienta o compilador a preferir vetores de 512 bits quando isso for lucrativo. A escolha e
+# coerente com AVX-512 e com kernels numericos de throughput alto
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/code-generation-options.html
+OPT_ARCH += -mprefer-vector-width=512
+
+# Autoriza uso agressivo de registradores ZMM. Em Cascade Lake o uso intenso de AVX-512 reduz a
+# frequencia dos nucleos por licenciamento de potencia; em kernels vetoriais dominantes o ganho de
+# throughput supera a perda de clock, que e o cenario deste servidor dedicado
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/qopt-zmm-usage-qopt-zmm-usage.html
+OPT_ARCH += -qopt-zmm-usage=high
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# PONTO FLUTUANTE E FUNCOES MATEMATICAS
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# Este bloco define o contrato numerico do perfil: sao aceitas diferencas em decimais distantes
+# decorrentes de reassociacao, contracao FMA e aproximacoes vetoriais. NaN e infinitos continuam
+# sendo produzidos e propagados normalmente, o que preserva a semantica de NA do R.
+OPT_FP =
+
+# Ativa o modelo agressivo de ponto flutuante, autorizando reassociacao de expressoes, otimizacao
+# de reducoes e simplificacoes algebricas value-unsafe. E a fonte principal das diferencas em
+# decimais distantes aceitas por este perfil. Nao suprime NaN nem infinitos
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/fp-model-fp.html
+OPT_FP += -fp-model=fast
+
+# Prioriza a SVML da Intel para funcoes matematicas vetoriais. A flag e coerente com AVX-512 e com
+# a linkagem explicita de libsvml no runtime Intel
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/fimf-use-svml-qimf-use-svml.html
+OPT_FP += -fimf-use-svml=true
+
+# Permite contrair multiplicacao e soma em FMA quando o compilador considerar legal. E util para
+# loops numericos densos e para codigo que se beneficia de instrucoes fused multiply-add
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/ffp-contract.html
+OPT_FP += -ffp-contract=fast
+
+# Remove a obrigacao de preservar errno em chamadas matematicas. Em workloads R numericos, erros
+# costumam ser tratados por NaN, Inf e codigos de retorno, nao por errno
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/floating-point-options.html
+OPT_FP += -fno-math-errno
+
+# Habilita flush-to-zero para subnormais. A decisao elimina penalidades severas de microcodigo em
+# valores proximos de zero, frequentes em gradientes de boosting, aceitando perda de granularidade
+# apenas no limite inferior do expoente
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/ftz-qftz.html
+OPT_FP += -ftz
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# OPENMP E VETORIZACAO DE LOOPS
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+OPT_VECTOR =
+
+# Ativa reconhecimento de diretivas OpenMP e seleciona o runtime Intel OpenMP. Deve permanecer
+# coerente com mkl_intel_thread e liomp5 na linkagem
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/qopenmp-qopenmp.html
+OPT_VECTOR += -qopenmp
+
+# Permite vetorizacao mascarada em loops com condicionais. Isso reduz branches e pode melhorar
+# loops com filtros ou atualizacoes condicionais
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/fvec-with-mask-qvec-with-mask.html
+OPT_VECTOR += -fvec-with-mask
+
+# Permite destacar iteracoes iniciais de um loop para alinhar o corpo vetorial principal. Isso
+# favorece acessos vetoriais mais regulares
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/fvec-peel-loops-qvec-peel-loops.html
+OPT_VECTOR += -fvec-peel-loops
+
+# Permite gerar caminhos vetoriais tambem para sobras de loop. E relevante quando o numero de
+# iteracoes nao e multiplo do fator vetorial
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/fvec-remainder-loops-qvec-remainder-loops.html
+OPT_VECTOR += -fvec-remainder-loops
+
+# Prioriza throughput de uma carga dominante. A escolha e adequada ao uso do servidor como
+# ambiente HPC dedicado para builds e execucoes numericas
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/qopt-for-throughput-qopt-for-throughput.html
+OPT_VECTOR += -qopt-for-throughput=single-job
+
+# Permite alinhamento dinamico quando o compilador identificar beneficio. A flag ajuda loops
+# vetoriais com enderecos que nao sao conhecidos estaticamente
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/qopt-dynamic-align-qopt-dynamic-align.html
+OPT_VECTOR += -qopt-dynamic-align
+
+# Permite otimizar certos padroes gather e scatter usando permutacoes vetoriais. A flag e
+# pertinente para codigo com acesso indireto a vetores
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/qopt-multiple-gather-scatter-by-shuffles.html
+OPT_VECTOR += -qopt-multiple-gather-scatter-by-shuffles
+
+# Permite transformacoes de layout de memoria para favorecer vetorizacao. O nivel 3 e mantido como
+# limite operacional por ser menos fragil que niveis mais extremos
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/qopt-mem-layout-trans-qopt-mem-layout-trans.html
+OPT_VECTOR += -qopt-mem-layout-trans=3
+
+# Permite ao compilador escolher stores nao temporais quando julgar adequado. Isso pode reduzir
+# poluicao de cache em escritas sequenciais grandes
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/qopt-streaming-stores-qopt-streaming-stores.html
+OPT_VECTOR += -qopt-streaming-stores=auto
+
+# Se autorizado por CONF_NOALIAS, assume que nao existem dependencias carregadas entre iteracoes
+# de loops. A assuncao produz resultados incorretos em codigo valido que possua dependencias
+# reais; por isso fica fora do perfil global e deve ser ativada somente em builds de pacotes
+# numericos auditados, como xgboost, lightgbm, sbyadanear e sbyops
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/qopt-assume-no-loop-carried-dep.html
+ifeq ($(CONF_NOALIAS),on)
+  OPT_VECTOR += -qopt-assume-no-loop-carried-dep=2
+endif
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# OTIMIZACOES C
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+OPT_CODE_C =
+
+# Ativa otimizacao agressiva para C. Inclui inlining, vetorizacao, transformacoes de loops,
+# propagacao de constantes e eliminacao de codigo morto
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/o-001.html
+OPT_CODE_C += -O3
+
+# Gera codigo independente de posicao. A flag e obrigatoria para shared libraries carregadas
+# dinamicamente pelo R via dyn.load
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/code-generation-options.html
+OPT_CODE_C += -fPIC
+
+# Usa pipes entre etapas do compilador. A escolha reduz I/O temporario em disco durante a
+# compilacao de pacotes grandes
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/use-compiler-options.html
+OPT_CODE_C += -pipe
+
+# Permite desenrolamento de loops quando o compilador considerar vantajoso. Pode reduzir overhead
+# de controle em loops numericos curtos ou previsiveis
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/unroll-qunroll.html
+OPT_CODE_C += -funroll-loops
+
+# Permite otimizar chamadas dentro da mesma shared library assumindo que simbolos nao serao
+# interpostos em runtime. Favorece pacotes com muitas funcoes pequenas
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/portability-and-gcc-compatible-warning-options.html
+OPT_CODE_C += -fno-semantic-interposition
+
+# Mantem regras estritas de aliasing. Essa escolha favorece otimizacoes em codigo C bem formado,
+# mas pode expor problemas em pacotes antigos com aliasing incorreto; nesses casos o pacote deve
+# cair para o proximo nivel da cadeia de Makevars
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/portability-and-gcc-compatible-warning-options.html
+OPT_CODE_C += -fstrict-aliasing
+
+# Seleciona nivel agressivo de prefetch gerado pelo compilador. A meta e reduzir faltas de cache
+# em loops previsiveis e de alto volume
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/qopt-prefetch-qopt-prefetch.html
+OPT_CODE_C += -qopt-prefetch=5
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# OTIMIZACOES C++
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+OPT_CODE_CXX =
+
+# Ativa otimizacao agressiva para C++. E adequada para Rcpp, Eigen, Armadillo, xgboost, lightgbm
+# e codigo template numerico
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/o-001.html
+OPT_CODE_CXX += -O3
+
+# Gera codigo independente de posicao para shared libraries C++ carregadas pelo R
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/code-generation-options.html
+OPT_CODE_CXX += -fPIC
+
+# Reduz uso de arquivos temporarios entre etapas do compilador durante builds C++ grandes
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/use-compiler-options.html
+OPT_CODE_CXX += -pipe
+
+# Permite desenrolamento de loops em codigo C++. Pode ser util em templates numericos e kernels
+# pequenos inlinados
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/unroll-qunroll.html
+OPT_CODE_CXX += -funroll-loops
+
+# Permite otimizacoes mais fortes de chamadas internas em shared libraries C++. Deve ser removida
+# se algum pacote depender de interposicao dinamica
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/portability-and-gcc-compatible-warning-options.html
+OPT_CODE_CXX += -fno-semantic-interposition
+
+# Preserva aliasing estrito tambem em C++. Favorece otimizacao em bibliotecas numericas bem
+# comportadas
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/portability-and-gcc-compatible-warning-options.html
+OPT_CODE_CXX += -fstrict-aliasing
+
+# Seleciona nivel agressivo de prefetch gerado pelo compilador. A meta e reduzir faltas de cache
+# em loops previsiveis e de alto volume
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/qopt-prefetch-qopt-prefetch.html
+OPT_CODE_CXX += -qopt-prefetch=5
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# OTIMIZACOES FORTRAN CODE
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+OPT_CODE_FORTRAN =
+
+# Ativa otimizacao agressiva no ifx para rotinas Fortran. A flag e adequada a BLAS auxiliares,
+# codigo numerico legado e kernels matriciais
+# https://www.intel.com/content/www/us/en/docs/fortran-compiler/developer-guide-reference/2026-0/o-001.html
+OPT_CODE_FORTRAN += -O3
+
+# Gera codigo Fortran independente de posicao para shared libraries R
+# https://www.intel.com/content/www/us/en/docs/fortran-compiler/developer-guide-reference/2026-0/fpic.html
+OPT_CODE_FORTRAN += -fPIC
+
+# Permite desenrolamento de loops Fortran quando a heuristica do compilador indicar ganho
+# https://www.intel.com/content/www/us/en/docs/fortran-compiler/developer-guide-reference/2026-0/unroll-qunroll.html
+OPT_CODE_FORTRAN += -funroll-loops
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# OTIMIZACOES FORTRAN COMMON
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+OPT_FORTRAN_COMMON =
+
+# Ativa o pre-processador Fortran. Muitos pacotes R com Fortran usam includes, macros ou
+# condicionais de compilacao
+# https://www.intel.com/content/www/us/en/docs/fortran-compiler/developer-guide-reference/2026-0/fpp-preprocessing.html
+OPT_FORTRAN_COMMON += -fpp
+
+# Move arrays temporarios automaticos para o heap sem limiar minimo. Isso reduz risco de estouro
+# de stack em rotinas numericas com temporarios grandes executadas em threads OpenMP
+# https://www.intel.com/content/www/us/en/docs/fortran-compiler/developer-guide-reference/2026-0/heap-arrays.html
+OPT_FORTRAN_COMMON += -heap-arrays 0
+
+# Define unidades de RECL em bytes. Esse comportamento e esperado por muitos codigos Fortran
+# portados para ambientes Unix modernos
+# https://www.intel.com/content/www/us/en/docs/fortran-compiler/developer-guide-reference/2026-0/assume.html
+OPT_FORTRAN_COMMON += -assume byterecl
+
+# Solicita alinhamento de arrays em 64 bytes. A decisao e coerente com a cache line moderna e com
+# loads e stores AVX-512 alinhados
+# https://www.intel.com/content/www/us/en/docs/fortran-compiler/developer-guide-reference/2026-0/align.html
+OPT_FORTRAN_COMMON += -align array64byte
+
+# Permite ao compilador assumir regras de aliasing mais estritas em Fortran. Isso auxilia
+# vetorizacao e otimizacoes de dependencias
+# https://www.intel.com/content/www/us/en/docs/fortran-compiler/developer-guide-reference/2026-0/ansi-alias-qansi-alias.html
+OPT_FORTRAN_COMMON += -ansi-alias
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# OTIMIZACOES FORTRAN 77 E FORTRAN MODERNO
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+OPT_FORTRAN_F77 =
+
+# Compila arquivos Fortran legados em formato fixed-form. Isso evita quebrar pacotes R antigos
+# que usam arquivos .f
+# https://www.intel.com/content/www/us/en/docs/fortran-compiler/developer-guide-reference/2026-0/fixed.html
+OPT_FORTRAN_F77 += -fixed
+
+OPT_FORTRAN_FC =
+
+# Compila Fortran moderno em formato free-form. Essa e a forma esperada para arquivos .f90, .f95
+# e equivalentes
+# https://www.intel.com/content/www/us/en/docs/fortran-compiler/developer-guide-reference/2026-0/free.html
+OPT_FORTRAN_FC += -free
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# RELATORIOS DE OTIMIZACAO
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+OPT_REPORT_FLAGS =
+
+# Se deve exibir informacoes durante o processamento
+ifeq ($(CONF_REPORT),on)
+
+# Gera relatorio detalhado de otimizacao. O nivel 5 e util para auditar vetorizacao,
+# transformacoes de loops e decisoes do compilador
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/qopt-report-qopt-report.html
+  OPT_REPORT_FLAGS += -qopt-report=5
+
+# Limita o relatorio as fases relevantes para este perfil: vetorizacao, loops, OpenMP e
+# otimizacao interprocedural
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/qopt-report-phase-qopt-report-phase.html
+  OPT_REPORT_FLAGS += -qopt-report-phase=vec,loop,fopenmp,ipo
+
+# Direciona o relatorio para stderr. Isso facilita capturar diagnosticos nos logs de instalacao
+# de pacotes R
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/qopt-report-file-qopt-report-file.html
+  OPT_REPORT_FLAGS += -qopt-report-file=stderr
+endif
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# PROFILE GUIDED OPTIMIZATION INSTRUMENTADO (PGO)
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# O PGO instrumentado fica desligado por padrao. Quando ativado, exige duas etapas: uma
+# compilacao com instrumentacao (CONF_PGO=generate), a execucao de uma carga representativa e uma
+# recompilacao usando o perfil consolidado (CONF_PGO=use). A consolidacao dos arquivos .profraw
+# deve ser feita fora do Makevars com llvm-profdata merge.
+INTEL_PGO_WORKSPACE ?= /soft/bdq/data/ufrgs/gpchpc/intel_pgo_workspace
+INTEL_PROFILE_FILE  ?= $(INTEL_PGO_WORKSPACE)/default_%p_%m.profraw
+INTEL_PROFDATA      ?= $(INTEL_PGO_WORKSPACE)/default.profdata
+
+PGO_FLAGS   =
+PGO_LDFLAGS =
+
+# Se esta gerando pgo
+ifeq ($(CONF_PGO),generate)
+
+# Instrumenta o codigo para coletar perfis de execucao. Os tokens percentuais evitam colisao
+# entre processos durante builds paralelos ou testes simultaneos
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/profile-guided-optimization-options.html
+  PGO_FLAGS += -fprofile-instr-generate=$(INTEL_PROFILE_FILE)
+
+# Gera mapeamento auxiliar de cobertura. Mantido no ciclo generate para compatibilidade com a
+# instrumentacao LLVM usada por icx e icpx
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/profile-guided-optimization-options.html
+  PGO_FLAGS += -fcoverage-mapping
+
+# Replica a instrumentacao na etapa de linkagem. Isso garante que o runtime de perfil seja
+# associado ao objeto final
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/profile-guided-optimization-options.html
+  PGO_LDFLAGS += -fprofile-instr-generate=$(INTEL_PROFILE_FILE)
+
+endif
+
+# Se esta com PGO em uso apos generate
+ifeq ($(CONF_PGO),use)
+
+# Usa o perfil consolidado para orientar decisoes de otimizacao. O ganho depende da
+# representatividade da carga executada no ciclo generate
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/profile-guided-optimization-options.html
+  PGO_FLAGS += -fprofile-instr-use=$(INTEL_PROFDATA)
+
+# Aplica o perfil tambem na etapa de linkagem para manter consistencia nas otimizacoes
+# interprocedurais
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/profile-guided-optimization-options.html
+  PGO_LDFLAGS += -fprofile-instr-use=$(INTEL_PROFDATA)
+endif
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# HARDWARE PROFILE GUIDED OPTIMIZATION (HWPGO)
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# O HWPGO substitui a instrumentacao por amostragem da PMU do processador, eliminando o overhead
+# de execucao do ciclo generate do PGO classico. O fluxo completo possui tres etapas externas:
+#   1 Compilar com CONF_HWPGO=generate, que preserva todas as otimizacoes e emite DWARF adequado
+#   2 Executar a carga representativa sob amostragem de hardware com LBR:
+#       perf record -b -e BR_INST_RETIRED.NEAR_TAKEN:uppp -o hwpgo.data -- <carga R>
+#     e converter o perfil para o formato LLVM:
+#       llvm-profgen --binary=<pacote.so> --perfdata=hwpgo.data --output=$(INTEL_HWPGO_PROF)
+#   3 Recompilar com CONF_HWPGO=use
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/hardware-profile-guided-optimization.html
+INTEL_HWPGO_WORKSPACE ?= /soft/bdq/data/ufrgs/gpchpc/intel_hwpgo_workspace
+INTEL_HWPGO_PROF      ?= $(INTEL_HWPGO_WORKSPACE)/hwpgo.freq.prof
+INTEL_HWPGO_MISP      ?= $(INTEL_HWPGO_WORKSPACE)/hwpgo.misp.prof
+
+HWPGO_FLAGS   =
+HWPGO_LDFLAGS =
+
+# O HWPGO so e considerado quando o PGO instrumentado esta desligado, pois os dois mecanismos
+# competem pelos mesmos metadados de perfil no backend LLVM
+ifeq ($(CONF_PGO),off)
+
+# Se esta preparando o binario para amostragem de hardware
+ifeq ($(CONF_HWPGO),generate)
+
+# Habilita o compilador e o linker a emitir a informacao de linha DWARF e os metadados
+# necessarios para correlacionar amostras da PMU com o codigo otimizado. O nivel padrao
+# keep-all-opt nao desabilita nenhuma otimizacao, mantendo o binario em velocidade de producao
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/fprofile-sample-generate.html
+  HWPGO_FLAGS += -fprofile-sample-generate
+
+# Replica a preparacao de amostragem na etapa de linkagem para preservar os metadados no objeto
+# final carregado pelo R
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/fprofile-sample-generate.html
+  HWPGO_LDFLAGS += -fprofile-sample-generate
+
+endif
+
+# Se esta consumindo o perfil de amostragem coletado via perf e llvm-profgen
+ifeq ($(CONF_HWPGO),use)
+
+# Usa o perfil de frequencia de execucao derivado da PMU para orientar inlining, layout de codigo
+# e decisoes de vetorizacao com dados reais de producao
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/fprofile-sample-use.html
+  HWPGO_FLAGS += -fprofile-sample-use=$(INTEL_HWPGO_PROF)
+
+# Se existir um perfil de mispredicao de branches, encaminha o arquivo ao backend LLVM para
+# refinar a estimativa de custo de branches individuais
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/hardware-profile-guided-optimization.html
+  ifneq ($(wildcard $(INTEL_HWPGO_MISP)),)
+    HWPGO_FLAGS += -mllvm -unpredictable-hints-file=$(INTEL_HWPGO_MISP)
+  endif
+
+endif
+endif
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# LINK TIME OPTIMIZATION
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+LTO_FLAGS =
+
+ifeq ($(CONF_LTO),on)
+
+  ifneq ($(CONF_PGO),generate)
+
+# Ativa otimizacao em tempo de linkagem. O modo full maximiza inlining entre unidades de
+# traducao; o modo thin pode ser selecionado com CONF_LTO_MODE=thin para reduzir tempo de build
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/flto.html
+    LTO_FLAGS += -flto=$(CONF_LTO_MODE)
+
+  endif
+endif
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# HARDENING OPCIONAL
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+HARDEN_C_FLAGS  =
+HARDEN_F_FLAGS  =
+HARDEN_LDFLAGS  =
+
+ifeq ($(CONF_HARDENING),on)
+
+# Adiciona verificacoes de chamadas conhecidas pela libc quando ha otimizacao habilitada. Fica
+# opcional porque o perfil principal prioriza desempenho
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/preprocessor-options.html
+  HARDEN_C_FLAGS += -D_FORTIFY_SOURCE=3
+
+# Insere protecao de stack em funcoes selecionadas. Pode aumentar seguranca, mas adiciona
+# overhead e pode interferir em alguns pacotes nativos
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/code-generation-options.html
+  HARDEN_C_FLAGS += -fstack-protector-strong
+
+# Ativa protecao de fluxo de controle quando suportada pela plataforma. Mantida somente no modo
+# hardening
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/code-generation-options.html
+  HARDEN_C_FLAGS += -fcf-protection=full
+
+# Aplica protecao de stack tambem a objetos Fortran quando o modo hardening estiver ativo
+# https://www.intel.com/content/www/us/en/docs/fortran-compiler/developer-guide-reference/2026-0/fstack-protector.html
+  HARDEN_F_FLAGS += -fstack-protector-strong
+
+# Preserva a politica de protecao de fluxo tambem na linkagem
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/code-generation-options.html
+  HARDEN_LDFLAGS += -fcf-protection=full
+endif
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# MACROS C
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+OPT_MACROS_C =
+
+# Habilita extensoes GNU em headers do sistema. Isso e comum em pacotes R que interagem com APIs
+# Linux
+# https://www.gnu.org/software/libc/manual/html_node/Feature-Test-Macros.html
+OPT_MACROS_C += -D_GNU_SOURCE
+
+# Declara uso de codigo reentrante e compativel com threads. A macro e coerente com OpenMP, TBB e
+# bibliotecas nativas paralelas
+# https://www.gnu.org/software/libc/manual/html_node/Feature-Test-Macros.html
+OPT_MACROS_C += -D_REENTRANT
+
+# Remove asserts de debug no codigo C. Essa escolha e padrao em builds de producao e reduz
+# verificacoes desnecessarias
+# https://en.cppreference.com/w/c/error/assert
+OPT_MACROS_C += -DNDEBUG
+
+# Permite chamadas diretas a rotinas MKL quando os headers MKL forem usados, eliminando a camada
+# de despacho em operacoes pequenas. Requer o include da MKL definido em CPPFLAGS
+# https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2026-0/using-mkl-direct-call.html
+OPT_MACROS_C += -DMKL_DIRECT_CALL
+
+# ─────────────────────────────────────────────────────────────────────────────────────────
+# MACROS C++
+# ─────────────────────────────────────────────────────────────────────────────────────────
+OPT_MACROS_CXX =
+
+OPT_MACROS_CXX += $(OPT_MACROS_C)
+
+# Remove verificacoes internas de debug da Armadillo. A decisao favorece desempenho em pacotes R
+# com algebra linear via Armadillo
+# https://arma.sourceforge.net/docs.html#config_hpp
+OPT_MACROS_CXX += -DARMA_NO_DEBUG
+
+# Permite que Armadillo use OpenMP quando aplicavel. Deve permanecer coerente com o uso de Intel
+# OpenMP neste perfil
+# https://arma.sourceforge.net/docs.html#config_hpp
+OPT_MACROS_CXX += -DARMA_USE_OPENMP
+
+# Orienta Armadillo a usar alocacao alinhada via mkl_malloc quando disponivel. A decisao reduz
+# desalinhamentos entre biblioteca numerica e codigo C++
+# https://arma.sourceforge.net/docs.html#config_hpp
+OPT_MACROS_CXX += -DARMA_USE_MKL_ALLOC
+
+# Reduz pre-alocacao estatica em objetos Armadillo. O valor baixo evita excesso de stack em
+# temporarios matriciais
+# https://arma.sourceforge.net/docs.html#config_hpp
+OPT_MACROS_CXX += -DARMA_MAT_PREALLOC=1
+
+# Remove verificacoes internas de debug da Eigen. Isso reduz overhead em templates numericos
+# usados por varios pacotes R
+# https://eigen.tuxfamily.org/dox/TopicPreprocessorDirectives.html
+OPT_MACROS_CXX += -DEIGEN_NO_DEBUG
+
+# Direciona operacoes suportadas da Eigen para MKL. Mantida desligada globalmente porque exige
+# headers MKL visiveis em todos os pacotes Eigen; ativar por pacote quando auditado
+# https://eigen.tuxfamily.org/dox/TopicUsingIntelMKL.html
+#OPT_MACROS_CXX += -DEIGEN_USE_MKL_ALL
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# AVISOS POR LINGUAGEM
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+OPT_WARNINGS_C =
+
+# Evita que avisos sejam promovidos a erro. Isso reduz falhas artificiais em pacotes R com codigo
+# de terceiros
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/compiler-diagnostic-options.html
+OPT_WARNINGS_C += -Wno-error
+
+# Suprime avisos quando uma flag e aceita pelo driver, mas nao usada por alguma etapa especifica
+# do build
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/compiler-diagnostic-options.html
+OPT_WARNINGS_C += -Wno-unused-command-line-argument
+
+# Reduz ruido causado por APIs antigas em bibliotecas externas usadas por pacotes R
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/compiler-diagnostic-options.html
+OPT_WARNINGS_C += -Wno-deprecated-declarations
+
+OPT_WARNINGS_CXX =
+OPT_WARNINGS_CXX += $(OPT_WARNINGS_C)
+
+# Suprime aviso C++ sobre captura implicita depreciada em lambdas antigas. O aviso e comum em
+# codigo C++ de pacotes legados
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/compiler-diagnostic-options.html
+OPT_WARNINGS_CXX += -Wno-deprecated-this-capture
+
+OPT_WARNINGS_F =
+
+OPT_WARNINGS_LD =
+
+# Suprime avisos de argumentos nao usados na etapa de linkagem, comuns quando o driver propaga
+# flags entre fases
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/compiler-diagnostic-options.html
+OPT_WARNINGS_LD += -Wno-unused-command-line-argument
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# POLLY
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+LLVM_EXT_C_FLAGS   =
+LLVM_EXT_CXX_FLAGS =
+
+ifeq ($(CONF_POLLY),on)
+
+  # Encaminha opcoes diretamente ao backend LLVM para habilitar Polly. Deve ser usado apenas em
+  # codigo C com loops regulares e apos teste por pacote
+  # https://polly.llvm.org/docs/UsingPollyWithClang.html
+  LLVM_EXT_C_FLAGS += -mllvm
+
+  # Ativa o otimizador poliedrico Polly no pipeline LLVM para C
+  # https://polly.llvm.org/docs/UsingPollyWithClang.html
+  LLVM_EXT_C_FLAGS += -polly
+
+  # Encaminha opcoes diretamente ao backend LLVM para habilitar Polly em C++
+  # https://polly.llvm.org/docs/UsingPollyWithClang.html
+  LLVM_EXT_CXX_FLAGS += -mllvm
+
+  # Ativa o otimizador poliedrico Polly no pipeline LLVM para C++
+  # https://polly.llvm.org/docs/UsingPollyWithClang.html
+  LLVM_EXT_CXX_FLAGS += -polly
+
+  # Encaminha ao backend LLVM a escolha do vetorizador do Polly para C
+  # https://polly.llvm.org/docs/UsingPollyWithClang.html
+  LLVM_EXT_C_FLAGS += -mllvm
+
+  # Ativa vetorizacao por strip-mining no Polly para C
+  # https://polly.llvm.org/docs/UsingPollyWithClang.html
+  LLVM_EXT_C_FLAGS += -polly-vectorizer=stripmine
+
+  # Encaminha ao backend LLVM a escolha do vetorizador do Polly para C++
+  # https://polly.llvm.org/docs/UsingPollyWithClang.html
+  LLVM_EXT_CXX_FLAGS += -mllvm
+
+  # Ativa vetorizacao por strip-mining no Polly para C++
+  # https://polly.llvm.org/docs/UsingPollyWithClang.html
+  LLVM_EXT_CXX_FLAGS += -polly-vectorizer=stripmine
+
+endif
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# ENZYME
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+ifeq ($(CONF_ENZYME),on)
+
+  # Encaminha a proxima opcao diretamente ao frontend Clang usado pelo compilador. O uso com icx
+  # deve ser testado porque plugins LLVM sao sensiveis a versao interna do compilador
+  # https://enzyme.mit.edu/getting_started/UsingEnzyme/
+  LLVM_EXT_C_FLAGS += -Xclang
+
+  # Solicita carregamento de plugin no frontend
+  # https://enzyme.mit.edu/getting_started/UsingEnzyme/
+  LLVM_EXT_C_FLAGS += -load
+
+  # Encaminha o caminho do plugin diretamente ao frontend Clang
+  # https://enzyme.mit.edu/getting_started/UsingEnzyme/
+  LLVM_EXT_C_FLAGS += -Xclang
+
+  # Carrega o plugin ClangEnzyme compilado na arvore LLVM custom
+  # https://enzyme.mit.edu/getting_started/UsingEnzyme/
+  LLVM_EXT_C_FLAGS += $(ENZYME_CLANG_PLUGIN)
+
+  # Encaminha a proxima opcao diretamente ao frontend Clang usado em C++
+  # https://enzyme.mit.edu/getting_started/UsingEnzyme/
+  LLVM_EXT_CXX_FLAGS += -Xclang
+
+  # Solicita carregamento de plugin no frontend C++
+  # https://enzyme.mit.edu/getting_started/UsingEnzyme/
+  LLVM_EXT_CXX_FLAGS += -load
+
+  # Encaminha o caminho do plugin diretamente ao frontend C++
+  # https://enzyme.mit.edu/getting_started/UsingEnzyme/
+  LLVM_EXT_CXX_FLAGS += -Xclang
+
+  # Carrega o plugin ClangEnzyme tambem para C++
+  # https://enzyme.mit.edu/getting_started/UsingEnzyme/
+  LLVM_EXT_CXX_FLAGS += $(ENZYME_CLANG_PLUGIN)
+
+endif
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# PSTL
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+ifeq ($(CONF_PSTL),on)
+
+  # Disponibiliza headers PSTL da arvore LLVM custom para codigo C++ que usa execution policies.
+  # Isso nao cria paralelismo automaticamente em codigo que nao usa a STL paralela
+  # https://github.com/llvm/llvm-project/tree/main/pstl
+  LLVM_EXT_CXX_FLAGS += -I$(PSTL_INCLUDE)
+
+endif
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# COMPOSICAO DAS FLAGS COMUNS
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# A composicao abaixo nao adiciona flags novas. Ela apenas consolida os blocos anteriores na
+# ordem usada pelo R: arquitetura, ponto flutuante, vetorizacao, extensoes LLVM, relatorios,
+# hardening, LTO, PGO, HWPGO e otimizacoes da linguagem
+COMMON_C_FLAGS =
+COMMON_C_FLAGS += $(OPT_ARCH)
+COMMON_C_FLAGS += $(OPT_FP)
+COMMON_C_FLAGS += $(OPT_VECTOR)
+COMMON_C_FLAGS += $(LLVM_EXT_C_FLAGS)
+COMMON_C_FLAGS += $(OPT_REPORT_FLAGS)
+COMMON_C_FLAGS += $(HARDEN_C_FLAGS)
+COMMON_C_FLAGS += $(LTO_FLAGS)
+COMMON_C_FLAGS += $(PGO_FLAGS)
+COMMON_C_FLAGS += $(HWPGO_FLAGS)
+COMMON_C_FLAGS += $(OPT_CODE_C)
+
+COMMON_CXX_FLAGS =
+COMMON_CXX_FLAGS += $(OPT_ARCH)
+COMMON_CXX_FLAGS += $(OPT_FP)
+COMMON_CXX_FLAGS += $(OPT_VECTOR)
+COMMON_CXX_FLAGS += $(LLVM_EXT_CXX_FLAGS)
+COMMON_CXX_FLAGS += $(OPT_REPORT_FLAGS)
+COMMON_CXX_FLAGS += $(HARDEN_C_FLAGS)
+COMMON_CXX_FLAGS += $(LTO_FLAGS)
+COMMON_CXX_FLAGS += $(PGO_FLAGS)
+COMMON_CXX_FLAGS += $(HWPGO_FLAGS)
+COMMON_CXX_FLAGS += $(OPT_CODE_CXX)
+
+COMMON_F_FLAGS =
+COMMON_F_FLAGS += $(OPT_ARCH)
+COMMON_F_FLAGS += $(OPT_FP)
+COMMON_F_FLAGS += $(OPT_VECTOR)
+COMMON_F_FLAGS += $(OPT_REPORT_FLAGS)
+COMMON_F_FLAGS += $(HARDEN_F_FLAGS)
+COMMON_F_FLAGS += $(LTO_FLAGS)
+COMMON_F_FLAGS += $(PGO_FLAGS)
+COMMON_F_FLAGS += $(OPT_CODE_FORTRAN)
+COMMON_F_FLAGS += $(OPT_FORTRAN_COMMON)
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# FLAGS FINAIS CONSUMIDAS PELO R
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# Estas variaveis sao as interfaces consumidas por R CMD INSTALL. FFLAGS atende Fortran
+# fixed-form e FCFLAGS atende Fortran moderno em free-form. CPPFLAGS disponibiliza o include da
+# MKL exigido pela macro MKL_DIRECT_CALL
+CPPFLAGS   = -I$(MKL_ROOT)/include
+CFLAGS     = $(CCSTD)    $(COMMON_C_FLAGS)   $(OPT_WARNINGS_C)   $(OPT_MACROS_C)
+CXXFLAGS   = $(CXXSTD)   $(COMMON_CXX_FLAGS) $(OPT_WARNINGS_CXX) $(OPT_MACROS_CXX)
+CXX17FLAGS = $(CXX17STD) $(COMMON_CXX_FLAGS) $(OPT_WARNINGS_CXX) $(OPT_MACROS_CXX)
+CXX20FLAGS = $(CXX20STD) $(COMMON_CXX_FLAGS) $(OPT_WARNINGS_CXX) $(OPT_MACROS_CXX)
+CXX23FLAGS = $(CXX23STD) $(COMMON_CXX_FLAGS) $(OPT_WARNINGS_CXX) $(OPT_MACROS_CXX)
+CXX26FLAGS = $(CXX26STD) $(COMMON_CXX_FLAGS) $(OPT_WARNINGS_CXX) $(OPT_MACROS_CXX)
+FFLAGS     = $(COMMON_F_FLAGS) $(OPT_FORTRAN_F77) $(OPT_WARNINGS_F)
+FCFLAGS    = $(COMMON_F_FLAGS) $(OPT_FORTRAN_FC)  $(OPT_WARNINGS_F)
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# BIBLIOTECAS MKL
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# A triade canonica da MKL em camadas exige interface, camada de threading e nucleo dentro do
+# mesmo grupo de linkagem. A ausencia de qualquer um dos tres produz simbolos nao resolvidos que
+# so se manifestam em tempo de carga
+MKL_LIBS =
+
+# Inicia grupo de bibliotecas no linker para resolver dependencias circulares entre componentes
+# MKL
+# https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2026-0/linking-quick-start.html
+MKL_LIBS += -Wl,--start-group
+
+# Seleciona a interface LP64 da MKL, com inteiros de 32 bits. Essa e a interface esperada pela
+# instalacao usual do R
+# https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2026-0/linking-quick-start.html
+MKL_LIBS += -lmkl_intel_lp64
+
+# Seleciona a camada paralela da MKL baseada no runtime Intel OpenMP. Deve ser usada junto com
+# liomp5 e qopenmp
+# https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2026-0/linking-quick-start.html
+MKL_LIBS += -lmkl_intel_thread
+
+# Adiciona o nucleo comum da MKL, necessario para BLAS, LAPACK e demais rotinas numericas. A
+# presenca desta biblioteca dentro do grupo e obrigatoria na linkagem em camadas
+# https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2026-0/linking-quick-start.html
+MKL_LIBS += -lmkl_core
+
+# Fecha o grupo de bibliotecas iniciado com start-group, permitindo que o linker resolva
+# referencias circulares
+# https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2026-0/linking-quick-start.html
+MKL_LIBS += -Wl,--end-group
+
+# Adiciona o runtime Intel OpenMP. A escolha e coerente com qopenmp e mkl_intel_thread
+# https://www.intel.com/content/www/us/en/developer/articles/tool/compilers-redistributable-libraries-by-version.html
+MKL_LIBS += -liomp5
+
+# Adiciona a biblioteca POSIX threads exigida por componentes paralelos e runtimes nativos
+# https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2026-0/linking-quick-start.html
+MKL_LIBS += -lpthread
+
+# Adiciona a biblioteca matematica do sistema para simbolos matematicos auxiliares
+# https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2026-0/linking-quick-start.html
+MKL_LIBS += -lm
+
+# Adiciona a biblioteca de carregamento dinamico usada por componentes que resolvem simbolos em
+# runtime
+# https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2026-0/linking-quick-start.html
+MKL_LIBS += -ldl
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# BIBLIOTECAS TBB
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# O conjunto TBB fica disponivel para pacotes que o solicitarem explicitamente via PKG_LIBS. O
+# proxy tbbmalloc_proxy nao participa de nenhuma linkagem global: a substituicao de malloc no
+# processo inteiro e incompativel com o spawn de daemons via posix_spawn usado por mirai e crew
+TBB_LIBS =
+
+# Adiciona a biblioteca principal da oneTBB, usada por pacotes C++ paralelos e por componentes
+# que dependem de tasks, como o qs2 compilado com suporte a TBB
+# https://www.intel.com/content/www/us/en/docs/onetbb/developer-guide-api-reference/2021-6/debug-versus-release-libraries.html
+TBB_LIBS += -ltbb
+
+# Adiciona o alocador escalavel da oneTBB para uso interno e explicito do pacote que o linkar,
+# sem interceptacao global de malloc do processo
+# https://www.intel.com/content/www/us/en/docs/onetbb/developer-guide-api-reference/2021-6/debug-versus-release-libraries.html
+TBB_LIBS += -ltbbmalloc
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# BIBLIOTECAS FORTRAN INTEL
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+FORTRAN_LIBS =
+
+# Adiciona o runtime Fortran principal em variante thread-safe. Necessario quando objetos ifx
+# entram em shared libraries do R
+# https://www.intel.com/content/www/us/en/developer/articles/tool/compilers-redistributable-libraries-by-version.html
+FORTRAN_LIBS += -lifcoremt
+
+# Adiciona a biblioteca de portabilidade Fortran da Intel, usada por rotinas auxiliares e
+# extensoes de compatibilidade
+# https://www.intel.com/content/www/us/en/developer/articles/tool/compilers-redistributable-libraries-by-version.html
+FORTRAN_LIBS += -lifport
+
+# Adiciona a Intel Math Library do compilador, usada por funcoes matematicas escalares e
+# vetoriais
+# https://www.intel.com/content/www/us/en/developer/articles/tool/compilers-redistributable-libraries-by-version.html
+FORTRAN_LIBS += -limf
+
+# Adiciona a Short Vector Math Library da Intel, coerente com fimf-use-svml e com vetorizacao
+# matematica
+# https://www.intel.com/content/www/us/en/developer/articles/tool/compilers-redistributable-libraries-by-version.html
+FORTRAN_LIBS += -lsvml
+
+# Adiciona biblioteca auxiliar de runtime do compilador Intel, necessaria para simbolos de
+# suporte em alguns builds
+# https://www.intel.com/content/www/us/en/developer/articles/tool/compilers-redistributable-libraries-by-version.html
+FORTRAN_LIBS += -lintlc
+
+# Adiciona biblioteca de runtime Intel usada por suporte interno do compilador e excecoes de
+# baixo nivel
+# https://www.intel.com/content/www/us/en/developer/articles/tool/compilers-redistributable-libraries-by-version.html
+FORTRAN_LIBS += -lirc
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# BIBLIOTECAS DE SISTEMA USADAS EM FLIBS
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+SYSTEM_LIBS =
+
+# Adiciona a biblioteca POSIX threads exigida por runtimes nativos e por objetos Fortran que
+# usam componentes paralelos
+# https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2026-0/linking-quick-start.html
+SYSTEM_LIBS += -lpthread
+
+# Adiciona a biblioteca matematica do sistema para simbolos auxiliares que nao estejam resolvidos
+# pelas bibliotecas Intel
+# https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2026-0/linking-quick-start.html
+SYSTEM_LIBS += -lm
+
+# Adiciona a biblioteca de carregamento dinamico, necessaria para resolucao de simbolos em
+# runtime por alguns componentes nativos
+# https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2026-0/linking-quick-start.html
+SYSTEM_LIBS += -ldl
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# DIRETORIOS E OPCOES DO LINKER
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+LDFLAGS =
+LDFLAGS += $(LTO_FLAGS)
+LDFLAGS += $(PGO_LDFLAGS)
+LDFLAGS += $(HWPGO_LDFLAGS)
+LDFLAGS += $(HARDEN_LDFLAGS)
+LDFLAGS += $(OPT_WARNINGS_LD)
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# BOLT
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+# Se esta confirmado que pode trabalhar nas otimizacoes pos-link
+ifeq ($(CONF_BOLT),on)
+
+  # Preserva relocations para otimizacao posterior com llvm-bolt. O Makevars apenas prepara o
+  # artefato; a execucao de perf2bolt e llvm-bolt deve ocorrer em etapa pos-link controlada
+  # https://github.com/llvm/llvm-project/blob/main/bolt/README.md
+  LDFLAGS += -Wl,--emit-relocs
+
+  # Adiciona identificador estavel ao artefato para rastreabilidade entre binario e perfil
+  # coletado
+  # https://sourceware.org/binutils/docs/ld/Options.html
+  LDFLAGS += -Wl,--build-id=sha1
+
+  # Evita strip quando o artefato sera processado por BOLT. Se CONF_STRIP for forcado por linha
+  # de comando, a linha de comando ainda tem prioridade sobre esta atribuicao
+  # https://github.com/llvm/llvm-project/blob/main/bolt/README.md
+  CONF_STRIP = off
+
+endif
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# LLD
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+# Se deve usar o linker lld
+ifeq ($(CONF_LLD),on)
+
+  # Usa lld como linker alternativo, preservando icx, icpx e ifx como toolchain principal. Deve
+  # ser ativado apenas depois de teste com pacotes C++, Fortran, MKL e OpenMP Intel
+  # https://lld.llvm.org/
+  LDFLAGS += -fuse-ld=lld
+
+  # Prioriza o lld instalado na arvore LLVM custom quando o driver resolver o linker solicitado
+  # https://lld.llvm.org/
+  LDFLAGS += -B$(LLVM_CUSTOM_BIN)
+
+endif
+
+# Propaga Intel OpenMP para a etapa de linkagem. Isso garante associacao correta com o runtime
+# OpenMP Intel
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/qopenmp-qopenmp.html
+LDFLAGS += -qopenmp
+
+# Inclui caminho de busca e rpath para bibliotecas do compilador Intel. Isso reduz dependencia de
+# LD_LIBRARY_PATH no carregamento pelo R
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/pass-options-to-the-linker.html
+LDFLAGS += -Wl,-rpath,$(COMPILER_LIB) -L$(COMPILER_LIB)
+
+# Inclui caminho de busca e rpath para a oneMKL. Isso permite que pacotes R encontrem a MKL em
+# runtime
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/pass-options-to-the-linker.html
+LDFLAGS += -Wl,-rpath,$(MKL_LIB) -L$(MKL_LIB)
+
+# Inclui caminho de busca e rpath para oneTBB com dtags modernas. Isso estabiliza o carregamento
+# de tbb e tbbmalloc quando um pacote os solicitar
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/pass-options-to-the-linker.html
+LDFLAGS += -L$(TBB_LIB) -Wl,-rpath,$(TBB_LIB) -Wl,--enable-new-dtags
+
+# Solicita otimizacao leve do linker. A flag melhora organizacao de simbolos sem aumentar muito a
+# fragilidade de linkagem
+# https://sourceware.org/binutils/docs/ld/Options.html
+LDFLAGS += -Wl,-O1
+
+# Forca resolucao imediata de simbolos dinamicos. Isso falha cedo em caso de simbolos ausentes e
+# melhora previsibilidade operacional
+# https://sourceware.org/binutils/docs/ld/Options.html
+LDFLAGS += -Wl,-z,now
+
+# Ativa read-only relocations quando suportado. A flag aumenta robustez do binario com custo
+# baixo
+# https://sourceware.org/binutils/docs/ld/Options.html
+LDFLAGS += -Wl,-z,relro
+
+# Combina relocacoes para reduzir overhead de carregamento dinamico em shared libraries
+# https://sourceware.org/binutils/docs/ld/Options.html
+LDFLAGS += -Wl,-z,combreloc
+
+# Ordena simbolos comuns na linkagem. Pode melhorar organizacao de memoria em codigo nativo
+# legado
+# https://sourceware.org/binutils/docs/ld/Options.html
+LDFLAGS += -Wl,--sort-common
+
+# Evita carregar bibliotecas sem simbolos efetivamente usados. Reduz dependencias dinamicas
+# desnecessarias em pacotes R
+# https://sourceware.org/binutils/docs/ld/Options.html
+LDFLAGS += -Wl,--as-needed
+
+# Se remove simbolos nao essenciais do objeto final
+ifeq ($(CONF_STRIP),on)
+
+  # Remove simbolos nao essenciais do objeto final. Fica opcional para preservar diagnostico
+  # durante falhas de pacotes
+  # https://sourceware.org/binutils/docs/ld/Options.html
+  LDFLAGS += -Wl,--strip-all
+endif
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# FLAGS DE SHARED LIBRARY
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# As flags abaixo sao consumidas pelo R para criar bibliotecas compartilhadas. LDFLAGS concentra
+# as politicas comuns e shared preserva o modelo esperado por pacotes R. Nao se define SHLIB_LIBS
+# nem SHLIBLIBS: nenhuma dessas variaveis e consumida pelo R; o hook oficial para bibliotecas
+# adicionais e SHLIB_LIBADD, que permanece vazio neste perfil para nao criar dependencias
+# compulsorias em todos os pacotes
+SHLIB_SHARED_FLAGS =
+
+# Solicita ao driver a criacao de uma shared library. Esse e o formato nativo esperado por
+# pacotes R carregados dinamicamente
+# https://www.intel.com/content/www/us/en/docs/dpcpp-cpp-compiler/developer-guide-reference/2026-0/linking-or-linker-options.html
+SHLIB_SHARED_FLAGS += -shared
+
+SHLIB_LDFLAGS    += $(SHLIB_SHARED_FLAGS) $(LDFLAGS)
+SHLIB_CXXLDFLAGS += $(SHLIB_SHARED_FLAGS) $(LDFLAGS)
+SHLIB_F77LDFLAGS += $(SHLIB_SHARED_FLAGS) $(LDFLAGS)
+SHLIB_FCLDFLAGS  += $(SHLIB_SHARED_FLAGS) $(LDFLAGS)
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# BLAS LAPACK E FLIBS
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# BLAS_LIBS e LAPACK_LIBS apontam para MKL para que pacotes R que consultam as variaveis oficiais
+# do R tambem usem a biblioteca numerica Intel. FLIBS mantem o runtime Fortran Intel disponivel
+# para pacotes com objetos .f, .f90 ou bibliotecas Fortran externas
+BLAS_LIBS   = $(MKL_LIBS)
+LAPACK_LIBS = $(MKL_LIBS)
+FLIBS       = $(FORTRAN_LIBS) $(SYSTEM_LIBS)
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# PARALELISMO DE COMPILACAO
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# MAKEFLAGS nao e definido neste arquivo de forma proposital. O paralelismo de compilacao e
+# governado pelo ambiente HPC, que exporta MAKEFLAGS com o teto de jobs coerente com o perfil
+# NUMA ativo. Definir MAKEFLAGS aqui sobreporia silenciosamente a politica do ambiente
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════
+### Fim
