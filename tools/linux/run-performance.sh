@@ -67,6 +67,19 @@ for profile in intel-makevars001 intel-native-strict; do
   grep -q 'icpx.*-c ' "$output/$profile-build.log"
 done
 
+# Check complete package behavior outside the timed region, including tiny probabilities.
+printf 'profile,passed\n' > "$output/package-test-status.csv"
+for profile in gcc intel-native-strict intel-makevars001; do
+  if R_LIBS="/opt/performance-libs/$profile" Rscript -e \
+    'library(tidyonnx); testthat::test_dir("tests/testthat", reporter = "summary", stop_on_failure = TRUE)' \
+      2>&1 | tee "$output/$profile-package-tests.log"; then
+    printf '%s,TRUE\n' "$profile" >> "$output/package-test-status.csv"
+  else
+    printf '%s,FALSE\n' "$profile" >> "$output/package-test-status.csv"
+    if [[ "$profile" != intel-makevars001 ]]; then exit 1; fi
+  fi
+done
+
 # Persist source predictions once, before measuring any converted model.
 R_LIBS=/opt/performance-libs/gcc Rscript tools/linux/prepare-performance.R "$output"
 sha256sum "$output/"*.ubj "$output/"*.onnx "$output/"*-reference.rds \

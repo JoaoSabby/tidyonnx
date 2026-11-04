@@ -105,8 +105,10 @@ standards. It is an adapted native profile, not the original file byte for byte.
 The benchmark builds generic GCC O2, Intel native fast, and Intel native strict.
 The strict control retains the native target and optimization options but uses
 strict arithmetic, the scalar expf call, and disabled contraction/flush-to-zero.
-Both accepted profiles must reproduce the saved XGBoost probabilities exactly.
-Fast-profile mismatches are recorded as rejected even if their timings are lower.
+Required acceptance includes the complete package suite and exact reproduction
+of the saved XGBoost probabilities under GCC and Intel native strict.
+Fast-profile prediction mismatches or package-test failures are recorded as
+rejected even if their timings are lower.
 A successful workflow therefore does not mean that every arithmetic profile passed.
 
 The default fixture has 16 features, missing values, 32-tree/256-tree binary
@@ -125,7 +127,8 @@ jobs and disabled ccache hits. XGBoost and R themselves are not rebuilt.
 
 Training, process startup, explicit collection before each sample, and file
 output are outside the API timing. Automatic GC and R-call overhead remain inside.
-The raw positive-class output is checked against XGBoost; the formatted table
+Full-batch predictions are saved once outside the timed region. The raw
+positive-class output is checked against XGBoost; the formatted table
 also checks its complementary column. Fixture checksums are verified after timing.
 A shared runner can introduce noise; these measurements do not establish a
 general compiler ranking or validate another CPU's native target.

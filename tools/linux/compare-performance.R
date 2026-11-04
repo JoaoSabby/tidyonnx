@@ -33,6 +33,19 @@ status <- do.call(rbind, lapply(unique(checks$profile), function(profile) {
     max_difference = max(rows$max_difference),
     decision = if (all(rows$exact)) "accepted" else "rejected_prediction_mismatch")
 }))
+# A numerically matching profile must also preserve the package's functional contract.
+test_file <- file.path(directory, "package-test-status.csv")
+package_tests <- if (file.exists(test_file)) read.csv(test_file) else NULL
+if (!is.null(package_tests)) stopifnot(setequal(package_tests$profile, unique(samples$profile)),
+  !anyDuplicated(package_tests$profile), !anyNA(package_tests$passed))
+status$package_tests_passed <- if (is.null(package_tests)) NA else
+  package_tests$passed[match(status$profile, package_tests$profile)]
+status$decision[!is.na(status$package_tests_passed) & !status$package_tests_passed] <-
+  "rejected_package_tests"
+comparison$package_tests_passed <- if (is.null(package_tests)) NA else
+  vapply(comparison$profile_intel, function(profile) {
+    all(package_tests$passed[package_tests$profile %in% c("gcc", profile)])
+  }, logical(1))
 write.csv(samples, file.path(directory, "all-timings.csv"), row.names = FALSE)
 write.csv(checks, file.path(directory, "all-correctness.csv"), row.names = FALSE)
 write.csv(comparison, file.path(directory, "performance-comparison.csv"), row.names = FALSE)
@@ -57,6 +70,9 @@ required <- if ("intel-native-strict" %in% samples$profile)
   c("gcc", "intel-native-strict") else unique(samples$profile)
 if (!all(checks$exact[checks$profile %in% required])) {
   stop("Prediction equality failed; retain timings as diagnostic evidence.")
+}
+if (!is.null(package_tests) && !all(package_tests$passed[package_tests$profile %in% required])) {
+  stop("Required profile failed package tests; retain timings as diagnostic evidence.")
 }
 if (!all(comparison$timer_resolved)) {
   stop("Timer resolution insufficient; increase BENCH_SECONDS and repeat in a fresh output directory.")

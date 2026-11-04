@@ -10,5 +10,9 @@
   "incorrect_predictions_rejected": true,
   "zero_duration_ratios_rejected": true,
   "workflow_yaml_parsed": true,
-  "limitation": "Harness smoke test only: both profile labels used the same installed Windows GCC build. No Intel/GCC performance result was measured."
+  "limitation": "Harness smoke test only: both profile labels used the same installed Windows GCC build. No Intel/GCC performance result was measured.",
+  "fast_mismatch_recorded_as_rejected": true,
+  "strict_mismatch_fails_workflow": true,
+  "unit_failures_override_matching_benchmark_predictions": true,
+  "required_unit_failure_fails_workflow": true
 }

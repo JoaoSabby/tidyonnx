@@ -57,6 +57,11 @@ results <- lapply(fixture$trees, function(trees) {
     operation <- function() tidyonnx::onnx_predict(model, batch, type = scenario$output,
       params = list(intra_op_threads = scenario$threads))
     actual <- as.matrix(operation())
+    # Retain full-batch numerical evidence once, outside the timed operation.
+    if (block == 1L && scenario$rows == fixture$rows && scenario$threads == 1L) {
+      saveRDS(actual, file.path(directory,
+        paste(profile, trees, scenario$output, "predictions.rds", sep = "-")))
+    }
     expected <- reference[seq_len(scenario$rows)]
     # Raw graph output has a float32 complement; compare the source's positive probability.
     exact <- identical(as.numeric(actual[, 2L]), expected)
@@ -88,4 +93,3 @@ write.csv(results, file.path(directory, paste0(profile, "-", block, "-timings.cs
 if (profile == "gcc") saveRDS(iterations_by_case, timing_plan)
 writeLines(c(paste("loaded package:", find.package("tidyonnx")),
   capture.output(sessionInfo())), file.path(directory, paste0(profile, "-", block, "-session.txt")))
-
