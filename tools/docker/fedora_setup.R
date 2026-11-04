@@ -37,6 +37,7 @@ variables <- c("CC", "CFLAGS", "CPP", "CPPFLAGS", "CXX", "CXXFLAGS", "CXX17",
   "BLAS_LIBS", "LAPACK_LIBS", "FLIBS")
 settings <- setNames(lapply(variables, onnx_internal_profile_value), variables)
 do.call(Sys.setenv, settings)
+Sys.setenv(LTO = onnx_internal_profile_value("LTO_FLAGS"), LTO_FC = "-flto")
 if (system2("make", c("-f", shQuote(profile), "cpu_probe")) != 0L) {
   stop("The Intel Cascade Lake execution probe failed.")
 }
@@ -76,12 +77,38 @@ if (!identical(trimws(readLines("VERSION", n = 1L, warn = FALSE)), release$versi
 }
 status <- system2("sh", c("configure", "--prefix=/opt/R/latest", "--enable-R-shlib",
   "--with-x=no", shQuote(paste0("--with-blas=", settings$BLAS_LIBS)),
-  "--with-lapack", "--enable-memory-profiling"))
+  "--with-lapack", "--enable-memory-profiling", "--enable-lto"))
 if (status != 0L) stop("Configuration of the latest stable R release failed.")
 jobs <- Sys.getenv("TIDYONNX_BUILD_JOBS", "2")
 if (!grepl("^[1-9][0-9]*$", jobs)) stop("TIDYONNX_BUILD_JOBS must be a positive integer.")
-if (system2("make", paste0("-j", jobs)) != 0L || system2("make", "install") != 0L) {
-  stop("Compilation or installation of the latest stable R release failed.")
+# The required R library must survive as-needed resolution before LTO expands Rmain.
+main_makefile <- readLines("src/main/Makefile", warn = FALSE)
+main_library <- sub("^R_bin_LDADD[[:space:]]*=[[:space:]]*", "",
+  grep("^R_bin_LDADD[[:space:]]*=", main_makefile, value = TRUE))
+if (length(main_library) != 1L || !grepl("(^|[[:space:]])-lR([[:space:]]|$)",
+    main_library)) {
+  stop("Cannot identify the required shared R library in its generated Makefile.")
+}
+main_library <- sub("(^|[[:space:]])-lR([[:space:]]|$)",
+  "\\1-Wl,--no-as-needed -lR -Wl,--as-needed\\2", main_library)
+link_argument <- shQuote(paste0("R_bin_LDADD=", main_library))
+cat("Required R executable library binding: ", main_library, "\n", sep = "")
+build_status <- system2("make", c(paste0("-j", jobs), link_argument))
+if (build_status != 0L) {
+  # Symbol diagnostics distinguish missing exports from premature dependency removal.
+  for (candidate in c("lib/libR.so", "src/main/libR.so", "src/unix/system.o",
+      "src/main/main.o")) {
+    if (!file.exists(candidate)) next
+    cat("Symbol diagnostics: ", candidate, "\n", sep = "")
+    symbols <- system2(settings$NM, c("-g", shQuote(candidate)), stdout = TRUE,
+      stderr = TRUE)
+    cat(symbols[grepl("R_running_as_main_program|Rf_initialize_R|Rf_mainloop", symbols)],
+      sep = "\n")
+  }
+  stop("Compilation of the latest stable R release failed; symbol diagnostics retained.")
+}
+if (system2("make", c("install", link_argument)) != 0L) {
+  stop("Installation of the latest stable R release failed.")
 }
 # The bootstrap R home must not override the freshly compiled R installation.
 Sys.unsetenv(c("R_HOME", "R_ARCH", "R_SHARE_DIR", "R_INCLUDE_DIR", "R_DOC_DIR"))

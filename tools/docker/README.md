@@ -13,7 +13,9 @@ user-supplied file. Its SHA-256 is
 
 The adapter intel_profile.mk resolves the installed oneAPI compiler, MKL and
 TBB directories and explicitly selects Intel for packages requesting C17.
-It preserves the profile's optimization settings, including Cascade Lake,
+It maps ifx full LTO to the equivalent flag-only spelling. R is configured with
+its supported LTO integration and its required libR dependency is retained
+explicitly during as-needed resolution. It preserves the profile's optimization settings, including Cascade Lake,
 512-bit vectors, fast floating-point arithmetic, FMA, flush-to-zero, full LTO
 and Intel OpenMP. Optional controls retain their supplied defaults.
 The original file is reference material; its comments are not newly authored
@@ -39,8 +41,10 @@ package release is performed.
 
 For push/PR execution, repository variable TIDYONNX_REFERENCE_RUNNER can select a
 compatible runner label. Manual dispatch accepts the runner input directly.
-The standard Ubuntu 26.04, 24.04 and 22.04 hosts tried on 2026-11-04 lacked AVX-512.
-A compatible runner is therefore required before this configuration can be accepted.
+Several standard Ubuntu hosts tried on 2026-11-04 lacked AVX-512. A later Ubuntu
+24.04 assignment exposed an Intel Xeon Platinum 8370C and passed the execution probe.
+The host label alone therefore cannot guarantee the required CPU. That compatible
+attempt subsequently failed while linking R; see VALIDATION.md for exact evidence.
 
 Each launch resolves stable Fedora from official metadata and builds without
 cached layers. Distribution R only bootstraps compilation of the current CRAN

@@ -7,11 +7,13 @@ ONNX Runtime remains the official precompiled 1.31.1 CPU release.
 
 The unchanged profile is tools/docker/reference/Makevars.001. SHA-256:
 998a06d9f8531fe4179b8bfe993f8b29529cd441d0e6073d48dbdfa7161c74a0.
-The adapter only resolves container paths and the C17 compiler hook. The original
+The adapter resolves container paths and the C17 compiler hook, and maps the
+ifx full-LTO flag to its equivalent flag-only spelling. R's shared-library link
+retains its required libR dependency explicitly during as-needed/LTO resolution. The original
 Cascade Lake/AVX-512, fast arithmetic, FMA, flush-to-zero, LTO and OpenMP settings
 are preserved. There is no automatic compiler or architecture fallback.
 
-**Intel execution status: blocked by the GitHub runner CPU.**
+**Intel execution status: R shared-library linkage failed on a compatible CPU.**
 The final tested configuration is commit
 24d4b04c364eeef8f193574b861a769550a2b735 on test/fedora-docker-20261104.
 The latest run is https://github.com/JoaoSabby/tidyonnx/actions/runs/41787360480.
@@ -21,12 +23,16 @@ The latest run is https://github.com/JoaoSabby/tidyonnx/actions/runs/41787360480
 | 41786051570 | ubuntu-latest (Ubuntu 26.04) | Fedora 45 and signed Intel compiler packages 2026.2.0-863 installed; the CPU guard rejected missing AVX-512/VNNI before R compilation and package tests. |
 | 41786900653 | ubuntu-24.04 | Fedora 45 CPU preflight found AMD EPYC 7763; avx512f absent; image construction stopped before toolchain installation. |
 | 41787092093 | ubuntu-22.04 | The same EPYC 7763 and missing avx512f blocked the container preflight. |
-| 41787360480 | ubuntu-24.04 | Final runner-selection configuration reproduced the same hardware block. |
+| 41787360480 | ubuntu-24.04 | Runner-selection configuration reproduced the same hardware block. |
+| 41787778315 | ubuntu-24.04 | Intel Xeon Platinum 8370C passed CPU checks and the AVX-512 VNNI execution probe. R 4.6.2 compilation reached linking, then R.bin failed to resolve three required libR exports. |
 
-All four runs ended with workflow failure; their artifact-upload steps succeeded.
+All five runs ended with workflow failure; their artifact-upload steps succeeded.
+The compatible run used Fedora 45, Intel compilers 2026.2.0 and MKL. A correction
+using R's supported LTO configuration and explicit retention of the required
+R library is prepared for the next run. No successful R or package result is claimed.
 No Intel package installation, testthat case, independent prediction comparison,
 benchmark or R CMD check completed. Those acceptance phases remain blocked.
-The R 4.6.2 source build with this Intel profile is also unverified.
+The R 4.6.2 source build with this Intel profile has not completed successfully.
 The supplied profile hash was preserved and checked; its arithmetic settings
 were not relaxed. Existing numerical tolerances, missing-value tests and the
 strict package-check gate remain unchanged. The two known Rd warnings are not waived.
@@ -40,7 +46,7 @@ was provisioned, and no emulated execution was counted as reference evidence.
 
 The final artifact is fedora-intel-validation, ID 13301787294, SHA-256
 87c1c15b0d6c9bae6f73dbe961940a809433ef0e833fdd8fc1ec92febdfde892.
-Artifacts from all four Intel attempts were downloaded locally and their
+Artifacts from the five Intel attempts were downloaded locally and their
 published SHA-256 values verified under validation-results/fedora-github/.
 Only static R/shell syntax, source policy review and Git whitespace checks were
 performed on Windows during this transition; these are not package test results.
