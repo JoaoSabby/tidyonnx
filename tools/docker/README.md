@@ -37,6 +37,11 @@ dispatch. It invokes tools/run_fedora_tests.sh and retains artifacts even
 when a phase fails. The testing branch is separate from main. No merge or
 package release is performed.
 
+For push/PR execution, repository variable TIDYONNX_REFERENCE_RUNNER can select a
+compatible runner label. Manual dispatch accepts the runner input directly.
+The standard Ubuntu 26.04, 24.04 and 22.04 hosts tried on 2026-11-04 lacked AVX-512.
+A compatible runner is therefore required before this configuration can be accepted.
+
 Each launch resolves stable Fedora from official metadata and builds without
 cached layers. Distribution R only bootstraps compilation of the current CRAN
 source into /opt/R/latest. Its SHA-256 must match the official R Core release

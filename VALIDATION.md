@@ -11,15 +11,45 @@ The adapter only resolves container paths and the C17 compiler hook. The origina
 Cascade Lake/AVX-512, fast arithmetic, FMA, flush-to-zero, LTO and OpenMP settings
 are preserved. There is no automatic compiler or architecture fallback.
 
-**Intel execution status: pending the first Intel reference run.**
-CPU checks and compilation alone cannot establish numerical acceptance.
-Existing numerical tolerances, missing-value tests and the strict package-check
-gate remain unchanged. The two known Rd warnings are not waived.
+**Intel execution status: blocked by the GitHub runner CPU.**
+The final tested configuration is commit
+24d4b04c364eeef8f193574b861a769550a2b735 on test/fedora-docker-20261104.
+The latest run is https://github.com/JoaoSabby/tidyonnx/actions/runs/41787360480.
+
+| Run | Host label | Exact observed result |
+| --- | --- | --- |
+| 41786051570 | ubuntu-latest (Ubuntu 26.04) | Fedora 45 and signed Intel compiler packages 2026.2.0-863 installed; the CPU guard rejected missing AVX-512/VNNI before R compilation and package tests. |
+| 41786900653 | ubuntu-24.04 | Fedora 45 CPU preflight found AMD EPYC 7763; avx512f absent; image construction stopped before toolchain installation. |
+| 41787092093 | ubuntu-22.04 | The same EPYC 7763 and missing avx512f blocked the container preflight. |
+| 41787360480 | ubuntu-24.04 | Final runner-selection configuration reproduced the same hardware block. |
+
+All four runs ended with workflow failure; their artifact-upload steps succeeded.
+No Intel package installation, testthat case, independent prediction comparison,
+benchmark or R CMD check completed. Those acceptance phases remain blocked.
+The R 4.6.2 source build with this Intel profile is also unverified.
+The supplied profile hash was preserved and checked; its arithmetic settings
+were not relaxed. Existing numerical tolerances, missing-value tests and the
+strict package-check gate remain unchanged. The two known Rd warnings are not waived.
+
+The repository has zero registered self-hosted runners (queried through the
+authenticated GitHub API). Standard host labels do not guarantee the required ISA.
+To resume, provide an existing GitHub runner exposing all required CPU features,
+select its label through the workflow runner input, or set repository variable
+TIDYONNX_REFERENCE_RUNNER for push/PR runs. No paid runner or external server
+was provisioned, and no emulated execution was counted as reference evidence.
+
+The final artifact is fedora-intel-validation, ID 13301787294, SHA-256
+87c1c15b0d6c9bae6f73dbe961940a809433ef0e833fdd8fc1ec92febdfde892.
+Artifacts from all four Intel attempts were downloaded locally and their
+published SHA-256 values verified under validation-results/fedora-github/.
+Only static R/shell syntax, source policy review and Git whitespace checks were
+performed on Windows during this transition; these are not package test results.
 
 The earlier GCC preparation run 41783842103 compiled R 4.6.2 on Fedora 45 but
 stopped at the installed-version probe before package tests. The bootstrap R
-environment isolation was corrected for the following run. That GCC run is
-auxiliary evidence and cannot approve the Intel reference.
+environment isolation was corrected for the following run, 41785046999. That
+auxiliary GCC execution was cancelled after the reference changed to Intel;
+it has no accepted result and cannot approve the Intel reference.
 
 Each launch resolves official latest stable release metadata. Logs and provenance
 are retained in validation-results/fedora/<run-id>/ and GitHub Actions artifacts.
