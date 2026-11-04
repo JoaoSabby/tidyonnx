@@ -2,3 +2,4 @@
 *.onnx -text
 *.tar.gz -text
 *.zip -text
+tools/docker/reference/Makevars.001 -text

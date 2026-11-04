@@ -13,4 +13,3 @@ include /opt/tidyonnx/profile/Makevars.001
 # Packages requesting C17 must select Intel rather than an inherited system compiler.
 CC17 = $(CC) -std=gnu17
 C17FLAGS = $(filter-out -std=gnu23,$(CFLAGS))
-

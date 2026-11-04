@@ -110,4 +110,3 @@ onnx_internal_r_checksum <- function(release) {
   }
   stop("No unique official SHA-256 for the latest R release; compilation refused.")
 }
-
