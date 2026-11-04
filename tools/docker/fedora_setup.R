@@ -38,8 +38,12 @@ variables <- c("CC", "CFLAGS", "CPP", "CPPFLAGS", "CXX", "CXXFLAGS", "CXX17",
 settings <- setNames(lapply(variables, onnx_internal_profile_value), variables)
 do.call(Sys.setenv, settings)
 Sys.setenv(LTO = onnx_internal_profile_value("LTO_FLAGS"), LTO_FC = "-flto")
-if (system2("make", c("-f", shQuote(profile), "cpu_probe", "shared_probe")) != 0L) {
-  stop("An Intel CPU or full-LTO shared export probe failed.")
+if (system2("make", c("-f", shQuote(profile), "cpu_probe")) != 0L) {
+  stop("The Intel Cascade Lake execution probe failed.")
+}
+source("/opt/tidyonnx/probe_shared_exports.R")
+if (!onnx_internal_probe_shared_exports(settings, profile)) {
+  stop("The reference profile fails shared-library ABI validation; no variant was accepted.")
 }
 versions <- lapply(c("icx", "icpx", "ifx"), function(command) {
   result <- system2(command, "--version", stdout = TRUE)
@@ -47,10 +51,10 @@ versions <- lapply(c("icx", "icpx", "ifx"), function(command) {
   result
 })
 names(versions) <- c("icx", "icpx", "ifx")
-linker <- file.path(dirname(settings$NM), "ld.lld")
-if (!file.exists(linker)) stop("The Intel bundled LLVM linker is unavailable.")
+linker <- Sys.which("ld")
+if (!nzchar(linker)) stop("The system linker is unavailable.")
 linker_version <- system2(linker, "--version", stdout = TRUE)
-if (!is.null(attr(linker_version, "status"))) stop("The Intel LLVM linker cannot execute.")
+if (!is.null(attr(linker_version, "status"))) stop("The system linker cannot execute.")
 jsonlite::write_json(list(profile_sha256 = profile_hash, compilers = versions,
   evaluated_variables = settings, cpu_features_required = required,
   adapter = list(full_lto_spelling = "-flto", linker = linker, version = linker_version)),

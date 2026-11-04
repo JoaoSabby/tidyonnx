@@ -23,6 +23,7 @@ COPY tools/docker/shared_client_probe.c /opt/tidyonnx/shared_client_probe.c
 COPY tools/docker/intel_entrypoint.sh /opt/tidyonnx/intel_entrypoint.sh
 COPY tools/docker/latest_versions.R /opt/tidyonnx/latest_versions.R
 COPY tools/docker/fedora_setup.R /opt/tidyonnx/fedora_setup.R
+COPY tools/docker/probe_shared_exports.R /opt/tidyonnx/probe_shared_exports.R
 RUN chmod +x /opt/tidyonnx/intel_entrypoint.sh && \
     /opt/tidyonnx/intel_entrypoint.sh Rscript --vanilla /opt/tidyonnx/fedora_setup.R
 
