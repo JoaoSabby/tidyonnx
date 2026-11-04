@@ -1,154 +1,202 @@
 # tidyonnx
 
-Native ONNX serialization and CPU inference for numerical XGBoost tree models.
-The public interface uses S7 objects and returns tibbles.
+Convert supported numerical XGBoost models to portable ONNX files and execute
+numeric tensors through ONNX Runtime **1.31.1**, using its C API and cpp11.
+The model artifact is S7; recognized tabular predictions are tibbles.
 
 ```r
 library(tidyonnx)
-
-onnx_save(fitted_model, "model.onnx")
-model <- onnx_load("model.onnx")
-onnx_predict(model, new_data)
-```
-
-Or convert directly in memory:
-
-```r
-fitted_model |>
-  onnx_convert() |>
-  onnx_predict(new_data, type = "prob")
+model <- onnx_convert(fitted_engine, target_name = "outcome")
+onnx_save(model, "model.onnx")
+onnx_predict(onnx_load("model.onnx"), new_data)
 ```
 
 ## Installation
 
-Install R 4.3 or newer and a matching R development toolchain (Rtools on Windows).
-Then install from source:
+R 4.3 or newer and a compatible development toolchain are required.
 
 ```r
-install.packages(c("S7", "tibble", "jsonlite", "cpp11"))
-install.packages("tidyonnx_0.1.0.tar.gz", repos = NULL, type = "source")
+remotes::install_github("JoaoSabby/tidyonnx")
 ```
 
-Alternatively, install the repository with
-`remotes::install_github("JoaoSabby/tidyonnx")`.
-XGBoost is required only when converting a fitted `xgb.Booster`.
-Prediction and ONNX loading do not require it. Installation performs no downloads.
-Nanopb sources are included; neither a schema compiler nor an external inference
-library is required.
+The source installer downloads the official Microsoft CPU archive for exactly
+v1.31.1, verifies its SHA-256 before extraction, validates archive paths, and
+installs the C runtime, license and notices privately in the package. Network
+access to that release is required. There is no source-build, mirror, offline
+or system-library fallback. XGBoost is optional for loading and inference.
 
-## Model coverage
+Supported asset selections are Windows x64/arm64/arm64x, Linux x64/aarch64,
+and macOS arm64. The selected architecture is the running R architecture.
+There is no macOS x86_64 asset in this fixed release; that platform fails
+explicitly. Oracle Linux 9.8 x86_64 selects Linux x64; actual client validation
+is still required. See VALIDATION.md for the platforms tested on this revision.
 
-| XGBoost objective | ONNX operator | Prediction |
+The full manifest is in `inst/install/runtime_manifest.csv`. Inspect the
+installed runtime version, asset and archive/library hashes with
+`onnx_inspect(model)$engine`. Loading verifies the private library hash, and
+initialization requires the exact runtime release and matching C API version.
+No unrelated interpreter is required by the authored installer or runtime.
+Windows also requires the Microsoft Visual C++ runtime libraries imported by
+the official binary; these were present on the validated host.
+Official third-party notices and binaries retain their upstream contents.
+
+## Conversion coverage
+
+| XGBoost objective | ONNX graph | Tidy output |
 | --- | --- | --- |
-| binary:logistic | TreeEnsembleClassifier | Two class probabilities |
+| binary:logistic | TreeEnsembleClassifier | Two probabilities or factor class |
 | binary:logitraw | TreeEnsembleRegressor | Raw margin |
 | reg:squarederror | TreeEnsembleRegressor | Numeric response |
 | reg:logistic | TreeEnsembleRegressor + Sigmoid | Logistic response |
-| multi:softprob | TreeEnsembleClassifier | Class probabilities |
-| multi:softmax | TreeEnsembleClassifier | Class probabilities or argmax class |
+| multi:softprob | TreeEnsembleClassifier | Probabilities or factor class |
+| multi:softmax | TreeEnsembleClassifier | Probabilities or factor class |
 
-Conversion uses the stable XGBoost JSON model representation, including its
-tree-to-class assignments and scalar or vector intercept. It exports **all stored
-trees**, rather than a caller-specific iteration range. Numerical `gbtree`
-boosters and `num_parallel_tree` are supported. Categorical splits, DART,
-linear boosters, vector leaves, and multiple regression targets are rejected.
-Custom objectives cannot be reconstructed from a saved model; only the six
-stored built-in objective names above are supported.
+One shared serializer handles these objectives, scalar/vector intercepts, and
+parallel trees. Native XGBoost export generates JSON with `raw_format = "json"`;
+jsonlite parses it for the existing C++ serializer. All stored trees are exported.
+Categorical splits, DART, linear boosters, vector leaves, multiple regression
+targets and other model engines are rejected. Conversion from arbitrary R
+models is not implemented.
 
-## Predictions
+`onnx_convert(model, feature_names = NULL, params = list(), target_name = NULL)`
+retains the original positional arguments. Feature names come from the engine,
+or use `f0`, `f1`, ... when no names exist. Explicit names must be unique,
+nonempty, complete and free of line breaks. `target_name` is outcome metadata;
+it does not change class IDs or output tensor names. Direct boosters normally
+lack factor labels: supply `params = list(class_levels = c("absent", "present"))`
+when those labels are known. The default labels are numeric class IDs as strings.
+
+## Named tensors
 
 ```r
-onnx_predict(model, new_data)                   # Probabilities, or numeric regression
+outputs <- onnx_run(model, list(features = as.matrix(prepared_predictors)))
+```
+
+`onnx_run()` accepts a uniquely named list matching the session inputs. Inputs
+may be plain integer or numeric vectors/arrays. It validates tensor names,
+ranks, fixed dimensions and shared symbolic dimensions. R column-major storage
+is reordered explicitly for ONNX; output names, axis order and dimensions are
+preserved. Scalars are length-one vectors without a dimension attribute.
+Rank-one outputs retain a one-dimensional array attribute.
+
+Supported ONNX element types are float32, float64, int32 and int64. Float outputs
+use R double storage; float32 precision remains the graph's precision. Int32
+outputs use R integers. Int64 outputs use exact R doubles only within +/-2^53;
+values outside that range fail. The reserved R int32 missing sentinel also
+fails. Floating inputs allow NA/NaN; integer tensors reject missing and fractional
+values. Infinities and float32 overflow fail explicitly.
+
+Each tensor is limited to 32 dimensions and a conservative 2 GB allocation
+bound. Output shapes must be fixed or resolvable from named input dimensions
+before execution. Data-dependent output shapes, maps, sequences, sparse values,
+strings, custom values and other element types are rejected. These checks do
+not impose a total memory quota on ONNX Runtime's internal graph workspace.
+Only CPU execution is exposed. Session opening does not establish a supported
+R input/output mapping for every ONNX graph.
+
+## Tidy predictions
+
+```r
+onnx_predict(model, new_data)                   # Probabilities or regression .pred
 onnx_predict(model, new_data, type = "class")   # Factor .pred_class
-onnx_predict(model, new_data, type = "numeric") # Numeric .pred; binary positive probability
-onnx_predict(model, new_data, type = "raw")     # Numeric vector or probability matrix
-predict(model, new_data)                       # stats::predict() compatibility
-onnx_inspect(model)                            # Tables of graph and engine details
+onnx_predict(model, new_data, type = "numeric") # Regression or binary positive score
+onnx_predict(model, new_data, type = "raw")     # Vector or probability matrix
+predict(model, new_data)                       # stats::predict compatibility
+onnx_inspect(model)                            # Runtime tensors and recognized metadata
 ```
 
-Probability columns are named `.pred_0`, `.pred_1`, or `.pred_{level}`.
-Custom labels can be supplied with
-`params = list(class_levels = c("absence", "presence"))` at conversion.
-Multiclass models reject `type = "numeric"` because one numeric response is
-ambiguous. `type = "raw"` describes the unformatted output; it does **not** request
-a pre-activation margin.
+Tidy prediction requires package-recognized task metadata and matching tensors.
+External models without that contract remain usable through `onnx_run()` when
+their tensor mapping is supported. Tree counts are unknown for external graphs,
+unless supplied as recognized provenance metadata; they are never fabricated.
 
-Named input columns are aligned to the saved feature order. Extra data-frame
-columns are ignored. Unnamed matrices use their column order. Integer and double
-columns are read directly; missing values follow each tree's learned direction.
-Factors, strings, dates, list columns, infinite values, missing predictors,
-duplicate names, and incorrect matrix widths fail explicitly. Preprocessing and
-factor encoding must match training. Empty batches return zero-row outputs.
+Named columns are aligned to saved feature order. Extra data-frame columns
+are ignored; unnamed matrices use column order. Factors, dates, strings,
+duplicate names and incorrect widths fail. Missing floats follow graph semantics.
+Empty supported batches preserve zero rows. Probability columns and factor
+levels preserve the model's saved class order. `type = "raw"` keeps its original
+unformatted meaning; it does not request file bytes or pre-activation margins.
+At an exact binary probability of 0.5, the tidy layer preserves its positive-class
+tie rule. The v1.31.1 graph label chooses class ID 0 in the tested symmetric
+encoding. `onnx_run()` exposes that label unchanged; the two decisions are tested
+separately and agree away from ties for the converted binary contract.
 
-## Persistence and threads
-
-`onnx_save()` returns the normalized destination path invisibly.
-`onnx_convert()` embeds bytes and creates no temporary ONNX file.
-`onnx_load()` embeds bytes by default, so models restored with `readRDS()`
-automatically rebuild their native session even if the original ONNX file was
-removed. Use `params = list(embed_raw_bytes = FALSE)` on load for file-backed
-restoration; the file must remain available. Replacing a backing file with another
-model with the same schema changes its future restored predictions.
-
-`params = list(intra_op_threads = 4L)` limits each inference call to at most four
-OpenMP workers. The default `0L` uses the physical-core count reported by R,
-falling back to one if unknown. Small batches run serially. Threads do not change
-the order of tree accumulation. No global OpenMP settings are modified.
-Builds without OpenMP execute serially; inspect
-`onnx_inspect(model)$engine$openmp` to see actual availability.
-
-## Runtime scope and tuning
-
-This version implements the attachment's **Route A**: a self-contained C17
-tree evaluator, a C++17 cpp11 ownership bridge, and Nanopb wire encoding/decoding.
-It provides CPU inference, not GPU execution or a general neural-network runtime.
-
-External ONNX loading accepts one numerical `ai.onnx.ml` TreeEnsembleClassifier
-or TreeEnsembleRegressor node, optionally followed by a standard Sigmoid for regression, one float32 input of shape `[N, P]` with dynamic
-rows and known width, SUM aggregation, and supported numerical comparisons.
-IR versions 3 through 10 and ML opsets 1 through 3 are accepted within that
-subset. Single-score binary classifiers, tensor-valued attributes, nonzero
-two-class `base_values`, multi-output regression, ZipMap, preprocessing,
-initializers, and arbitrary graph pipelines are rejected instead of being
-silently approximated. External models without feature metadata use
-`f0`, `f1`, ... . Converted classifiers use explicit scores and a constant
-intercept tree for portable runtime semantics.
-
-All public functions accept `params = list()`. Supported settings are:
-
-| Parameter | Default | Route A behavior |
-| --- | --- | --- |
-| target_opset | 18L | Standard domain version written at conversion; 18–21 |
-| ir_version | 8L | Model IR version written at conversion; 8–10 |
-| float_precision | "float32" | Only float32 serialization and comparisons |
-| embed_raw_bytes | TRUE | Controls embedding for file loads; in-memory objects always embed |
-| class_levels | NULL | Defaults to "0", "1", ... from model class count |
-| execution_provider | "cpu" | CPU only |
-| intra_op_threads | 0L | Maximum OpenMP workers; zero detects physical cores |
-| inter_op_threads | 1L | Single graph node; other values rejected |
-| graph_opt_level | "all" | "all" or "disable"; no graph rewrites in this engine |
-| log_severity | "error" | Validated compatibility setting; this engine reports errors only |
-
-Serialization settings apply to conversion; runtime thread settings apply to each
-prediction. Load and inspect do not convert models. Unsupported values and unknown
-parameter names fail explicitly. The parameter list is validated per call rather
-than retained as a mutable process-wide setting.
-
-## Development and validation
-
-Documentation is maintained directly in `man/`; this version has no roxygen or
-Doxygen generation blocks. Run:
+## Direct workflow artifacts
 
 ```r
-cpp11::cpp_register(".")
-testthat::test_local()
+requested <- add_onnx(workflow)
+fitted <- generics::fit(requested, data = training_data)
+artifact <- extract_fit_onnx(fitted)
+predict(fitted, new_data)                     # Ordinary workflow preprocessing
+onnx_predict(artifact, prepared_predictors)   # Prepared engine inputs only
 ```
 
-Then run `R CMD build .` and `R CMD check --no-manual tidyonnx_0.1.0.tar.gz`.
-The included cross-platform CI performs package checks, while
-`tools/validate-runtime.R` compares outputs with a separately downloaded official
-ONNX Runtime through its C API. That reference executable is a development tool
-and is never built or loaded by package installation.
+A narrow S3 workflow subclass calls ordinary fit once, then uses public workflow
+accessors to obtain the engine, prepared predictors, outcome name and levels.
+The adapter checks engine feature order, encodes binary class orientation, and
+compares a prediction probe before attaching the complete S7 artifact. Conversion
+failure fails the requested fit. A formula and simple numeric recipes are
+supported; unsupported recipe-to-engine contracts fail explicitly. The recipe
+is retained in the workflow and is never translated into ONNX operators.
+Tuning, resampling and last-fit hooks are outside this version.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for specification decisions and
-[VALIDATION.md](VALIDATION.md) for measured results and limitations.
+## Persistence and settings
+
+Embedded model bytes survive RDS and restore disposable native sessions. With
+`onnx_load(file, params = list(embed_raw_bytes = FALSE))`, the backing file must
+remain available and byte-identical. A SHA-256 check rejects replacement even
+when the new file has the same schema. File saving preserves exact bytes and
+uses same-directory staging, a backup and rollback on replacement failure.
+On Windows this recovery strategy has a brief interval without the final name;
+it is not a cross-process atomic transaction.
+
+Embedded 0.1.0 RDS artifacts migrate through their portable bytes and checked
+feature/task/class metadata. Legacy file-backed RDS artifacts lack a source
+digest and require an explicit `onnx_load()` call instead of unverifiable migration.
+
+| Parameter | Default | Effective scope |
+| --- | --- | --- |
+| target_opset | 18L | Conversion only; standard domain 18-21 |
+| ir_version | 8L | Conversion only; model IR 8-10 |
+| float_precision | "float32" | Conversion only; other serialization types rejected |
+| embed_raw_bytes | TRUE | Loading only; conversion always embeds bytes |
+| class_levels | NULL | Conversion only; direct labels must be explicitly known |
+| execution_provider | "cpu" | CPU sessions only |
+| intra_op_threads | 1L | Session worker setting; 0 delegates selection to the runtime |
+| inter_op_threads | 1L | Session setting; other values rejected in this version |
+| graph_opt_level | "all" | Runtime graph optimization; "all" or "disable" |
+| log_severity | "error" | Runtime session logging threshold |
+
+Unlike the former evaluator, runtime optimization and logging now reach the
+C API. Conversion settings are rejected when supplied to load, predict or
+inspect instead of being silently ignored. Prediction or inspection with runtime
+settings recreates a session when needed; subsequent calls reuse its cache.
+Existing ONNX bytes cannot be relabeled or reserialized through conversion.
+
+R source is byte-compiled. Package-owned native code appends `-O3` with the
+R toolchain; `TIDYONNX_OPT_FLAGS` may override that option. No unsafe floating
+point or host-specific CPU flags are injected. Package OpenMP execution has
+been removed; runtime threading is owned by ONNX Runtime.
+
+## Development
+
+No documentation generation is performed in this phase. Existing Rd files are
+unchanged, so checks may report missing entries or signature mismatches for the
+new API. See VALIDATION.md for exact checks, benchmarks and outstanding gates.
+The independent C API executable in `tools/validate_runtime.cpp` validates
+saved ONNX files without loading R. Authored source and comment policy checks
+exclude unchanged handoff references and downloaded third-party files.
+
+## Canonical test environment
+
+All validation now runs inside Docker with the latest stable Fedora Linux
+and the latest stable CRAN R release. From this checkout, run
+`pwsh -NoProfile -File tools/run_fedora_tests.ps1` on Windows, or
+`sh tools/run_fedora_tests.sh` on Linux. Every package test and check executes
+inside the image; the host only launches Docker. Existing R validation entry
+points delegate to the same full container suite.
+
+See [the Fedora test guide](tools/docker/README.md) for version discovery,
+provenance, phases and prerequisites. GitHub Actions builds and runs the Fedora
+container; Docker on PC-TOHP2 is optional. The previous 280-expectation
+Windows result is historical and is not a Fedora result.

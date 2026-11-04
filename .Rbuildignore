@@ -8,3 +8,9 @@
 ^VALIDATION\.md$
 (^|/)src/.*\.(o|so|dll|a)$
 ^\.gitattributes$
+^IMPLEMENTATION_SPEC\.md$
+^STYLE_GUIDE\.md$
+^src/ort_include$
+^inst/ort$
+^IMPLEMENTATION_CHECKLIST\.md$
+^\.dockerignore$

@@ -18,9 +18,9 @@ typedef struct {
   OnnxSpan bytes;
 } OnnxField;
 /* Returns 1 for a field, 0 for end-of-message, and -1 for malformed input. */
-int tidyonnx_next_field(OnnxSpan* stream, OnnxField* field);
-int tidyonnx_read_packed_integer(OnnxSpan* stream, uint64_t* value);
-int tidyonnx_read_packed_float(OnnxSpan* stream, float* value);
+int onnx_internal_next_field(OnnxSpan* stream, OnnxField* field);
+int onnx_internal_read_packed_integer(OnnxSpan* stream, uint64_t* value);
+int onnx_internal_read_packed_float(OnnxSpan* stream, float* value);
 #ifdef __cplusplus
 }
 #endif

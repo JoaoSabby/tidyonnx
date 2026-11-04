@@ -1,0 +1,28 @@
+CXX_STD = CXX17
+PKG_CPPFLAGS = -I. -Inanopb -DPB_FIELD_32BIT
+PKG_CFLAGS =
+PKG_CXXFLAGS =
+PKG_LIBS = @DYNAMIC_LIBS@
+OBJECTS = cpp11.o bindings.o runtime.o model.o onnx_parser.o nanopb/pb_common.o nanopb/pb_decode.o nanopb/pb_encode.o serializers/xgb_serializer.o
+TIDYONNX_OPT_FLAGS = @OPT_FLAGS@
+
+all: $(SHLIB)
+
+# Explicit rules retain R flags and append optimization only for package-owned objects.
+cpp11.o: cpp11.cpp
+	$(CXX) $(ALL_CPPFLAGS) $(ALL_CXXFLAGS) $(TIDYONNX_OPT_FLAGS) -c cpp11.cpp -o cpp11.o
+
+bindings.o: bindings.cpp
+	$(CXX) $(ALL_CPPFLAGS) $(ALL_CXXFLAGS) $(TIDYONNX_OPT_FLAGS) -c bindings.cpp -o bindings.o
+
+runtime.o: runtime.cpp
+	$(CXX) $(ALL_CPPFLAGS) $(ALL_CXXFLAGS) $(TIDYONNX_OPT_FLAGS) -c runtime.cpp -o runtime.o
+
+model.o: model.cpp
+	$(CXX) $(ALL_CPPFLAGS) $(ALL_CXXFLAGS) $(TIDYONNX_OPT_FLAGS) -c model.cpp -o model.o
+
+serializers/xgb_serializer.o: serializers/xgb_serializer.cpp
+	$(CXX) $(ALL_CPPFLAGS) $(ALL_CXXFLAGS) $(TIDYONNX_OPT_FLAGS) -c serializers/xgb_serializer.cpp -o serializers/xgb_serializer.o
+
+onnx_parser.o: onnx_parser.c
+	$(CC) $(ALL_CPPFLAGS) $(ALL_CFLAGS) $(TIDYONNX_OPT_FLAGS) -c onnx_parser.c -o onnx_parser.o

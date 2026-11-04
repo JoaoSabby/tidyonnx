@@ -1,11 +1,17 @@
-# Predictable return types preserve row order and the original target-level order.
+# Tidy prediction is available only for explicitly recognized tabular task metadata.
 onnx_predict <- function(object, new_data, type = NULL, params = list()) {
-  params <- validate_onnx_params(params)
+  onnx_internal_check_param_context(params, "predict")
   if (is.character(object) && length(object) == 1L) object <- onnx_load(object, params)
   if (!S7::S7_inherits(object, onnx_model)) {
     stop("object must be an onnx_model or an ONNX file path.", call. = FALSE)
   }
-  object <- ensure_active_session(object)
+  # Empty params retain the session's selected runtime settings instead of resetting them.
+  object <- onnx_internal_ensure_active_session(object,
+    if (length(params)) onnx_internal_validate_onnx_params(params) else NULL)
+  if (object@task_type == "unknown") {
+    stop("No recognized tidy prediction contract; use onnx_run with named tensors.",
+      call. = FALSE)
+  }
   classification <- object@task_type != "regression"
   if (is.null(type)) type <- if (classification) "prob" else "numeric"
   if (!is.character(type) || length(type) != 1L || is.na(type) ||
@@ -18,22 +24,32 @@ onnx_predict <- function(object, new_data, type = NULL, params = list()) {
   if (object@task_type == "classification_multiclass" && type == "numeric") {
     stop("Use prob, class, or raw for multiclass models.", call. = FALSE)
   }
-  input <- prepare_input_columns(new_data, object@feature_names)
-  threads <- params$intra_op_threads
-  if (!threads) {
-    cores <- parallel::detectCores(logical = FALSE)
-    threads <- if (is.na(cores)) 1L else max(1L, as.integer(cores))
+  prepared <- onnx_internal_prepare_input_columns(new_data, object@feature_names)
+  if (is.matrix(prepared$data)) {
+    tensor <- prepared$data[, prepared$indices, drop = FALSE]
+  } else {
+    tensor <- matrix(unlist(prepared$data, use.names = FALSE), nrow = prepared$rows,
+      ncol = length(object@feature_names))
   }
-  output <- cpp_predict_model(object@session_ptr, input$data, input$indices,
-    as.integer(input$rows), as.integer(threads))
+  values <- onnx_run(object, list(features = tensor))
+  output <- if (classification) values$probabilities else as.numeric(values$prediction)
+  expected <- if (classification) c(prepared$rows, length(object@class_levels)) else
+    c(prepared$rows, 1L)
+  actual <- if (classification) dim(values$probabilities) else dim(values$prediction)
+  if (!identical(as.integer(actual), as.integer(expected))) {
+    stop("ONNX output shape does not match the tidy tabular contract.", call. = FALSE)
+  }
   if (type == "raw") return(output)
   if (type == "numeric") {
-    return(tibble::tibble(.pred = if (classification) output[, 2L] else output))
+    positive <- if (identical(object@metadata$custom$binary_positive_class, "0")) 1L else 2L
+    return(tibble::tibble(.pred = if (classification) output[, positive] else output))
   }
   if (type == "class") {
-    # A probability exactly equal to 0.5 selects the positive class for binary models.
-    index <- if (ncol(output) == 2L) 1L + as.integer(output[, 2L] >= 0.5) else
-      max.col(output, ties.method = "first")
+    # The existing binary tie rule selects the positive class at exactly one half.
+    positive <- if (identical(object@metadata$custom$binary_positive_class, "0")) 1L else 2L
+    index <- if (ncol(output) == 2L) {
+      ifelse(output[, positive] >= 0.5, positive, 3L - positive)
+    } else max.col(output, ties.method = "first")
     return(tibble::tibble(.pred_class = factor(object@class_levels[index],
       levels = object@class_levels)))
   }

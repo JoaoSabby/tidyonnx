@@ -1,0 +1,7 @@
+platform,asset,url,sha256
+linux-x64,onnxruntime-linux-x64-1.31.1.tgz,https://github.com/microsoft/onnxruntime/releases/download/v1.31.1/onnxruntime-linux-x64-1.31.1.tgz,c849e36a1ef3e22d4ff217b9d1ce4a3cf5b9467b975610913ae959ad5b16bdc9
+linux-arm64,onnxruntime-linux-aarch64-1.31.1.tgz,https://github.com/microsoft/onnxruntime/releases/download/v1.31.1/onnxruntime-linux-aarch64-1.31.1.tgz,5317505e2da99be65f8e2775ba3c2afd6d2961fd78aba1bd8f56159f48820c78
+osx-arm64,onnxruntime-osx-arm64-1.31.1.tgz,https://github.com/microsoft/onnxruntime/releases/download/v1.31.1/onnxruntime-osx-arm64-1.31.1.tgz,2e1344a1926ee50eb25b38153cb6992c3567515aef0e677a1a520a1798896d6f
+win-x64,onnxruntime-win-x64-1.31.1.zip,https://github.com/microsoft/onnxruntime/releases/download/v1.31.1/onnxruntime-win-x64-1.31.1.zip,5869e26bb25314375f2d5ef1877e3ea06b1543d6c710e6e4a1ec2f7177ab4b2c
+win-arm64,onnxruntime-win-arm64-1.31.1.zip,https://github.com/microsoft/onnxruntime/releases/download/v1.31.1/onnxruntime-win-arm64-1.31.1.zip,817f4129073f84f81cde3ff92b1a4e06d007691e7208deed08a8b6d6df143f7f
+win-arm64x,onnxruntime-win-arm64x-1.31.1.zip,https://github.com/microsoft/onnxruntime/releases/download/v1.31.1/onnxruntime-win-arm64x-1.31.1.zip,254df6ef708570d63c66b74ea88717f2e7a42ce456a396056869321ce09b4445

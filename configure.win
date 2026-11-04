@@ -1,0 +1,3 @@
+#!/bin/sh
+# Windows uses the same R installer and matching official C API headers.
+"${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" --vanilla -e 'source("inst/install/onnx_internal_install_runtime.R"); onnx_internal_install_runtime()' || exit 1

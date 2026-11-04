@@ -1,4 +1,4 @@
-// RAII owns every allocation; the C core only borrows immutable views.
+// Serialization and its isolated tree validator retain no inference resources.
 #ifndef TIDYONNX_MODEL_H
 #define TIDYONNX_MODEL_H
 #include <cpp11.hpp>
@@ -11,11 +11,12 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include "tidyonnx_api.h"
+#include "tree_validation.h"
 #include "onnx_parser.h"
 #include "proto_generated/onnx.pb.h"
 
 namespace tidyonnx {
+// Domain checks raise ordinary exceptions for cpp11's protected R boundary.
 inline void require(bool condition, const std::string& message) {
   if (!condition) throw std::runtime_error(message);
 }
@@ -55,7 +56,7 @@ class Serializer {
   virtual const char* source_class() const = 0;
   virtual SerializedModel serialize(cpp11::list learner,
     cpp11::strings features, cpp11::strings levels, cpp11::doubles base_score,
-    int opset, int ir_version) const = 0;
+    int opset, int ir_version, const std::string& target_name, int positive_class) const = 0;
 };
 const Serializer& xgboost_serializer();
 std::unique_ptr<Session> decode_model(const uint8_t* data, size_t size);

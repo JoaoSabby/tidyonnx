@@ -6,48 +6,73 @@
 #include <R_ext/Visibility.h>
 
 // bindings.cpp
-cpp11::writable::raws cpp_serialize_model(cpp11::list learner, cpp11::strings features, cpp11::strings levels, cpp11::doubles base_score, int opset, int ir_version);
-extern "C" SEXP _tidyonnx_cpp_serialize_model(SEXP learner, SEXP features, SEXP levels, SEXP base_score, SEXP opset, SEXP ir_version) {
+cpp11::writable::raws onnx_internal_serialize_model(cpp11::list learner, cpp11::strings features, cpp11::strings levels, cpp11::doubles base_score, int opset, int ir_version, std::string target_name, int positive_class);
+extern "C" SEXP _tidyonnx_onnx_internal_serialize_model(SEXP learner, SEXP features, SEXP levels, SEXP base_score, SEXP opset, SEXP ir_version, SEXP target_name, SEXP positive_class) {
   BEGIN_CPP11
-    return cpp11::as_sexp(cpp_serialize_model(cpp11::as_cpp<cpp11::decay_t<cpp11::list>>(learner), cpp11::as_cpp<cpp11::decay_t<cpp11::strings>>(features), cpp11::as_cpp<cpp11::decay_t<cpp11::strings>>(levels), cpp11::as_cpp<cpp11::decay_t<cpp11::doubles>>(base_score), cpp11::as_cpp<cpp11::decay_t<int>>(opset), cpp11::as_cpp<cpp11::decay_t<int>>(ir_version)));
+    return cpp11::as_sexp(onnx_internal_serialize_model(cpp11::as_cpp<cpp11::decay_t<cpp11::list>>(learner), cpp11::as_cpp<cpp11::decay_t<cpp11::strings>>(features), cpp11::as_cpp<cpp11::decay_t<cpp11::strings>>(levels), cpp11::as_cpp<cpp11::decay_t<cpp11::doubles>>(base_score), cpp11::as_cpp<cpp11::decay_t<int>>(opset), cpp11::as_cpp<cpp11::decay_t<int>>(ir_version), cpp11::as_cpp<cpp11::decay_t<std::string>>(target_name), cpp11::as_cpp<cpp11::decay_t<int>>(positive_class)));
   END_CPP11
 }
 // bindings.cpp
-cpp11::sexp cpp_open_model(cpp11::raws bytes);
-extern "C" SEXP _tidyonnx_cpp_open_model(SEXP bytes) {
+bool onnx_internal_validate_tree(cpp11::raws bytes);
+extern "C" SEXP _tidyonnx_onnx_internal_validate_tree(SEXP bytes) {
   BEGIN_CPP11
-    return cpp11::as_sexp(cpp_open_model(cpp11::as_cpp<cpp11::decay_t<cpp11::raws>>(bytes)));
+    return cpp11::as_sexp(onnx_internal_validate_tree(cpp11::as_cpp<cpp11::decay_t<cpp11::raws>>(bytes)));
   END_CPP11
 }
-// bindings.cpp
-bool cpp_session_alive(SEXP pointer);
-extern "C" SEXP _tidyonnx_cpp_session_alive(SEXP pointer) {
+// runtime.cpp
+std::string onnx_internal_initialize_runtime(std::string path);
+extern "C" SEXP _tidyonnx_onnx_internal_initialize_runtime(SEXP path) {
   BEGIN_CPP11
-    return cpp11::as_sexp(cpp_session_alive(cpp11::as_cpp<cpp11::decay_t<SEXP>>(pointer)));
+    return cpp11::as_sexp(onnx_internal_initialize_runtime(cpp11::as_cpp<cpp11::decay_t<std::string>>(path)));
   END_CPP11
 }
-// bindings.cpp
-cpp11::writable::list cpp_model_info(SEXP pointer);
-extern "C" SEXP _tidyonnx_cpp_model_info(SEXP pointer) {
+// runtime.cpp
+void onnx_internal_release_runtime();
+extern "C" SEXP _tidyonnx_onnx_internal_release_runtime() {
   BEGIN_CPP11
-    return cpp11::as_sexp(cpp_model_info(cpp11::as_cpp<cpp11::decay_t<SEXP>>(pointer)));
+    onnx_internal_release_runtime();
+    return R_NilValue;
   END_CPP11
 }
-// bindings.cpp
-cpp11::sexp cpp_predict_model(SEXP pointer, SEXP data, cpp11::integers indices, int rows, int threads);
-extern "C" SEXP _tidyonnx_cpp_predict_model(SEXP pointer, SEXP data, SEXP indices, SEXP rows, SEXP threads) {
+// runtime.cpp
+cpp11::sexp onnx_internal_create_session(cpp11::raws bytes, cpp11::list params);
+extern "C" SEXP _tidyonnx_onnx_internal_create_session(SEXP bytes, SEXP params) {
   BEGIN_CPP11
-    return cpp11::as_sexp(cpp_predict_model(cpp11::as_cpp<cpp11::decay_t<SEXP>>(pointer), cpp11::as_cpp<cpp11::decay_t<SEXP>>(data), cpp11::as_cpp<cpp11::decay_t<cpp11::integers>>(indices), cpp11::as_cpp<cpp11::decay_t<int>>(rows), cpp11::as_cpp<cpp11::decay_t<int>>(threads)));
+    return cpp11::as_sexp(onnx_internal_create_session(cpp11::as_cpp<cpp11::decay_t<cpp11::raws>>(bytes), cpp11::as_cpp<cpp11::decay_t<cpp11::list>>(params)));
+  END_CPP11
+}
+// runtime.cpp
+bool onnx_internal_session_alive(SEXP pointer);
+extern "C" SEXP _tidyonnx_onnx_internal_session_alive(SEXP pointer) {
+  BEGIN_CPP11
+    return cpp11::as_sexp(onnx_internal_session_alive(cpp11::as_cpp<cpp11::decay_t<SEXP>>(pointer)));
+  END_CPP11
+}
+// runtime.cpp
+cpp11::writable::list onnx_internal_model_info(SEXP pointer);
+extern "C" SEXP _tidyonnx_onnx_internal_model_info(SEXP pointer) {
+  BEGIN_CPP11
+    return cpp11::as_sexp(onnx_internal_model_info(cpp11::as_cpp<cpp11::decay_t<SEXP>>(pointer)));
+  END_CPP11
+}
+// runtime.cpp
+cpp11::writable::list onnx_internal_run(SEXP pointer, cpp11::list inputs);
+extern "C" SEXP _tidyonnx_onnx_internal_run(SEXP pointer, SEXP inputs) {
+  BEGIN_CPP11
+    return cpp11::as_sexp(onnx_internal_run(cpp11::as_cpp<cpp11::decay_t<SEXP>>(pointer), cpp11::as_cpp<cpp11::decay_t<cpp11::list>>(inputs)));
   END_CPP11
 }
 
 extern "C" {
 static const R_CallMethodDef CallEntries[] = {
-    {"_tidyonnx_cpp_model_info",      (DL_FUNC) &_tidyonnx_cpp_model_info,      1},
-    {"_tidyonnx_cpp_open_model",      (DL_FUNC) &_tidyonnx_cpp_open_model,      1},
-    {"_tidyonnx_cpp_predict_model",   (DL_FUNC) &_tidyonnx_cpp_predict_model,   5},
-    {"_tidyonnx_cpp_serialize_model", (DL_FUNC) &_tidyonnx_cpp_serialize_model, 6},
-    {"_tidyonnx_cpp_session_alive",   (DL_FUNC) &_tidyonnx_cpp_session_alive,   1},
+    {"_tidyonnx_onnx_internal_create_session",     (DL_FUNC) &_tidyonnx_onnx_internal_create_session,     2},
+    {"_tidyonnx_onnx_internal_initialize_runtime", (DL_FUNC) &_tidyonnx_onnx_internal_initialize_runtime, 1},
+    {"_tidyonnx_onnx_internal_model_info",         (DL_FUNC) &_tidyonnx_onnx_internal_model_info,         1},
+    {"_tidyonnx_onnx_internal_release_runtime",    (DL_FUNC) &_tidyonnx_onnx_internal_release_runtime,    0},
+    {"_tidyonnx_onnx_internal_run",                (DL_FUNC) &_tidyonnx_onnx_internal_run,                2},
+    {"_tidyonnx_onnx_internal_serialize_model",    (DL_FUNC) &_tidyonnx_onnx_internal_serialize_model,    8},
+    {"_tidyonnx_onnx_internal_session_alive",      (DL_FUNC) &_tidyonnx_onnx_internal_session_alive,      1},
+    {"_tidyonnx_onnx_internal_validate_tree",      (DL_FUNC) &_tidyonnx_onnx_internal_validate_tree,      1},
     {NULL, NULL, 0}
 };
 }

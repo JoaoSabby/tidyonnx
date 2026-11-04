@@ -10,6 +10,7 @@ namespace {
 class ProtoWriter {
  public:
   std::vector<uint8_t> bytes;
+  // A small initial capacity avoids repeated allocation for model header fields.
   ProtoWriter() { bytes.reserve(256); }
   // Nanopb writes directly into the owning vector, preserving exception safety.
   static bool append(pb_ostream_t* stream, const pb_byte_t* buffer, size_t count) {
@@ -17,6 +18,7 @@ class ProtoWriter {
     destination->insert(destination->end(), buffer, buffer + count);
     return true;
   }
+  // Each stream borrows the same vector while Nanopb tracks write bounds.
   pb_ostream_t stream() {
     pb_ostream_t result{};
     result.callback = append;
@@ -24,36 +26,44 @@ class ProtoWriter {
     result.max_size = SIZE_MAX;
     return result;
   }
+  // Encode a tagged unsigned wire integer for schema-defined integer fields.
   void integer(uint32_t tag, uint64_t value) {
     auto output = stream();
     require(pb_encode_tag(&output, PB_WT_VARINT, tag) && pb_encode_varint(&output, value),
       "Cannot encode ONNX integer.");
   }
+  // Packed repeated integers omit individual field tags.
   void raw_integer(uint64_t value) {
     auto output = stream();
     require(pb_encode_varint(&output, value), "Cannot encode ONNX packed integer.");
   }
+  // ONNX float attributes retain the trained model's single-precision values.
   void raw_float(float value) {
     auto output = stream();
     require(pb_encode_fixed32(&output, &value), "Cannot encode ONNX float.");
   }
+  // Length-delimited fields carry nested messages and UTF-8 identifiers.
   void data(uint32_t tag, const uint8_t* value, size_t size) {
     auto output = stream();
     require(pb_encode_tag(&output, PB_WT_STRING, tag) && pb_encode_string(&output, value, size),
       "Cannot encode ONNX byte field.");
   }
+  // Strings use their UTF-8 byte length without locale-dependent transformations.
   void string(uint32_t tag, const std::string& value) {
     data(tag, reinterpret_cast<const uint8_t*>(value.data()), value.size());
   }
+  // Nested wire messages are copied into the owning model buffer.
   void message(uint32_t tag, const ProtoWriter& value) {
     data(tag, value.bytes.data(), value.bytes.size());
   }
 };
+// XGBoost scalar strings must be non-missing and decoded explicitly as UTF-8.
 std::string scalar_string(SEXP value) {
   require(TYPEOF(value) == STRSXP && Rf_xlength(value) == 1 && STRING_ELT(value, 0) != NA_STRING,
     "Expected a scalar string in the XGBoost model.");
   return Rf_translateCharUTF8(STRING_ELT(value, 0));
 }
+// Accept the scalar encodings emitted by supported XGBoost JSON model versions.
 double number(SEXP value) {
   require(Rf_xlength(value) == 1, "Expected a scalar XGBoost number.");
   double result;
@@ -69,17 +79,20 @@ double number(SEXP value) {
   require(std::isfinite(result), "Nonfinite value in XGBoost model.");
   return result;
 }
+// Identifiers require exact bounded integers before entering tree-index arrays.
 int integer_number(SEXP value) {
   double result = number(value);
   require(result >= INT_MIN && result <= INT_MAX && result == std::floor(result),
     "Invalid integer in XGBoost model.");
   return static_cast<int>(result);
 }
+// Required structural fields fail before partially encoded trees can escape.
 cpp11::list list_field(cpp11::list object, const char* name) {
   SEXP value = object[name];
   require(TYPEOF(value) == VECSXP, std::string("Missing XGBoost structure: ") + name);
   return cpp11::list(value);
 }
+// Ordered names use a delimiter that is explicitly forbidden within each name.
 std::string join_names(cpp11::strings names) {
   std::string result;
   for (R_xlen_t index = 0; index < names.size(); ++index) {
@@ -92,6 +105,7 @@ std::string join_names(cpp11::strings names) {
   }
   return result;
 }
+// Typed integer attributes share one packed encoding across all objectives.
 void attribute_integers(ProtoWriter& node, const std::string& name,
     const std::vector<int64_t>& values) {
   ProtoWriter attribute;
@@ -102,6 +116,7 @@ void attribute_integers(ProtoWriter& node, const std::string& name,
   attribute.message(8, packed);
   node.message(ONNX_NODE_ATTRIBUTE, attribute);
 }
+// Typed float attributes preserve thresholds, leaf weights and intercept values.
 void attribute_floats(ProtoWriter& node, const std::string& name,
     const std::vector<float>& values) {
   ProtoWriter attribute;
@@ -112,6 +127,7 @@ void attribute_floats(ProtoWriter& node, const std::string& name,
   attribute.message(7, packed);
   node.message(ONNX_NODE_ATTRIBUTE, attribute);
 }
+// Repeated strings encode the operator's ordered node comparison modes.
 void attribute_strings(ProtoWriter& node, const std::string& name,
     const std::vector<std::string>& values) {
   ProtoWriter attribute;
@@ -120,6 +136,7 @@ void attribute_strings(ProtoWriter& node, const std::string& name,
   for (const auto& value : values) attribute.string(9, value);
   node.message(ONNX_NODE_ATTRIBUTE, attribute);
 }
+// Scalar operator attributes declare score transforms and aggregation semantics.
 void attribute_string(ProtoWriter& node, const std::string& name, const std::string& value) {
   ProtoWriter attribute;
   attribute.string(1, name);
@@ -127,6 +144,7 @@ void attribute_string(ProtoWriter& node, const std::string& name, const std::str
   attribute.string(4, value);
   node.message(ONNX_NODE_ATTRIBUTE, attribute);
 }
+// Scalar integer attributes declare target counts without string coercion.
 void attribute_integer(ProtoWriter& node, const std::string& name, int value) {
   ProtoWriter attribute;
   attribute.string(1, name);
@@ -134,6 +152,7 @@ void attribute_integer(ProtoWriter& node, const std::string& name, int value) {
   attribute.integer(3, value);
   node.message(ONNX_NODE_ATTRIBUTE, attribute);
 }
+// Exported tensors share the symbolic batch axis and an explicit known feature width.
 ProtoWriter value_info(const std::string& name, int type, int columns, bool matrix) {
   ProtoWriter value;
   value.string(1, name);
@@ -154,6 +173,7 @@ ProtoWriter value_info(const std::string& name, int type, int columns, bool matr
   value.message(2, type_info);
   return value;
 }
+// Portable task metadata remains independent of any live R model or recipe object.
 void metadata_entry(ProtoWriter& model, const std::string& key, const std::string& value) {
   ProtoWriter entry;
   entry.string(1, key);
@@ -177,9 +197,12 @@ const std::vector<Objective> objectives = {
 };
 class XgboostSerializer final : public Serializer {
  public:
+  // The source identifier describes the fitted engine handled by this adapter.
   const char* source_class() const override { return "xgb.Booster"; }
+  // Shared traversal and objective metadata preserve numerical score conventions.
   SerializedModel serialize(cpp11::list learner, cpp11::strings features,
-      cpp11::strings levels, cpp11::doubles base_score, int opset, int ir_version) const override {
+      cpp11::strings levels, cpp11::doubles base_score, int opset, int ir_version,
+      const std::string& target_name, int positive_class) const override {
     cpp11::list objective = list_field(learner, "objective");
     std::string objective_name = scalar_string(objective["name"]);
     auto found = std::find_if(objectives.begin(), objectives.end(), [&](const Objective& value) {
@@ -207,7 +230,12 @@ class XgboostSerializer final : public Serializer {
       }
       base_values[target] = static_cast<float>(value);
     }
-    if (specification.binary) base_values[0] = -base_values[1];
+    require(positive_class == 0 || positive_class == 1, "Invalid binary positive class.");
+    if (specification.binary) {
+      float positive_base = base_values[1];
+      base_values[positive_class] = positive_base;
+      base_values[1 - positive_class] = -positive_base;
+    }
     else if (specification.classifier && targets == 2) {
       float half_difference = (base_values[1] - base_values[0]) * 0.5f;
       base_values[0] = -half_difference;
@@ -307,7 +335,8 @@ class XgboostSerializer final : public Serializer {
               weight_trees.push_back(tree_id);
               weight_nodes.push_back(node);
               weight_ids.push_back(output);
-              weights.push_back(output == 0 ? -positive_weight : positive_weight);
+              int positive = specification.binary ? positive_class : 1;
+              weights.push_back(output == positive ? positive_weight : -positive_weight);
             }
           } else {
             weight_trees.push_back(tree_id);
@@ -373,7 +402,7 @@ class XgboostSerializer final : public Serializer {
     ProtoWriter model;
     model.integer(ONNX_IR_VERSION, ir_version);
     model.string(ONNX_PRODUCER_NAME, "tidyonnx");
-    model.string(ONNX_PRODUCER_VERSION, "0.1.0");
+    model.string(ONNX_PRODUCER_VERSION, "0.2.0");
     model.message(ONNX_GRAPH, graph);
     ProtoWriter standard_opset;
     standard_opset.integer(2, opset);
@@ -388,11 +417,21 @@ class XgboostSerializer final : public Serializer {
     metadata_entry(model, "tidyonnx.feature_names", join_names(features));
     if (specification.classifier) metadata_entry(model, "tidyonnx.class_levels", join_names(levels));
     metadata_entry(model, "tidyonnx.objective", objective_name);
+    metadata_entry(model, "tidyonnx.target_name", target_name);
+    metadata_entry(model, "tidyonnx.binary_positive_class", std::to_string(positive_class));
+    metadata_entry(model, "tidyonnx.num_trees",
+      std::to_string(trees.size() + (specification.classifier ? 1 : 0)));
+    metadata_entry(model, "tidyonnx.num_nodes", std::to_string(node_ids.size()));
+    metadata_entry(model, "tidyonnx.num_graph_nodes", explicit_sigmoid ? "2" : "1");
+    metadata_entry(model, "tidyonnx.opset", std::to_string(opset));
+    metadata_entry(model, "tidyonnx.ml_opset", "3");
+    metadata_entry(model, "tidyonnx.ir_version", std::to_string(ir_version));
     metadata_entry(model, "tidyonnx.binary_encoding", "explicit_two_class_scores_constant_intercept");
     return {std::move(model.bytes)};
   }
 };
 }
+// The immutable adapter is shared without retaining a fitted model or runtime session.
 const Serializer& xgboost_serializer() {
   static const XgboostSerializer serializer;
   return serializer;

@@ -1,99 +1,72 @@
-# Architecture decisions
+# Architecture decisions for 0.2.0
 
-## Conflicting attachment requirements
+The implementation evolves the 0.1.0 checkout at d8a77cb rather than replacing
+its converter. The execution boundary is now ONNX Runtime 1.31.1 through its
+C API, with cpp11 as the only R/native bridge. There is no evaluator fallback.
 
-The supplied specification simultaneously requires an ONNX Runtime/libprotobuf
-implementation and a Route A implementation with no external inference or
-protobuf libraries. These cannot be the same default execution engine.
-Version 0.1.0 follows the explicit Route A mandate. The R interface remains S7,
-the native bridge remains exclusively cpp11, and the evaluator remains pure C.
-There is no OrtEnv singleton because this engine has no OrtEnv resource.
-A session is an immutable validated tree representation owned by
-`cpp11::external_pointer<Session>`.
+## Installation and ownership
 
-Nanopb 0.4.9.1 is vendored with its license. It is a compiled C library, not a
-header-only library. Its bounded wire primitives encode/decode the required
-ONNX fields. `src/proto_generated/onnx.pb.h` is audited, manually maintained
-field-number metadata, not an automatically generated full ONNX descriptor.
-The complete upstream ONNX 1.17.0 schema is included for provenance. No
-misleading generated descriptor or unused schema compilation step is included.
+Configure scripts run an R installer against a fixed platform/hash manifest.
+The matching release headers are used for compilation; the private shared
+library, version, archive digest, binary digest, license and notices are
+installed under the package. Generated headers and binaries are excluded from
+the source archive and are not committed. Exact release and API version checks
+precede session creation. Unsupported architectures fail explicitly.
 
-## Data flow
+A shared native library owner retains the C API and OrtEnv. Every native
+session owns a shared reference, so session destruction always precedes library
+unloading. Type information, session options, metadata and inference values
+have scope guards. No R API call occurs on runtime worker threads. Namespace
+loading checks the installed digest; actual library loading is deferred until
+first session creation to avoid locking staged Windows installation paths.
 
-1. R exports a fitted XGBoost model using its stable JSON model API.
-2. jsonlite reads the model; C++'s XGBoost serializer extracts numerical trees,
-   tree assignments, objective, and intercept.
-3. Nanopb emits a standard binary ModelProto with ML opset 3 and standard opset
-   18 by default. Names and labels are stored as UTF-8 newline-delimited metadata;
-   names containing line breaks are rejected.
-4. The same bounded parser validates loaded bytes. C++ validates topology,
-   array lengths, identifier uniqueness, roots, reachability, finite weights,
-   feature bounds, and supported graph semantics before publishing a session.
-5. C receives immutable node/weight arrays and borrowed R column pointers.
-   It reads integer and double features directly, casts individual values to
-   float32 as XGBoost does, traverses trees, and writes column-major R output.
-   No full input matrix conversion or row-major copy is required.
-6. cpp11 finalizes the session. Embedded ONNX bytes and a shared cache environment
-   rehydrate external pointers after R serialization.
+## Serialization and artifact
 
-## Binary classifier portability
+The existing XGBoost tree extraction, objective table, intercept mathematics,
+Nanopb encoding and explicit score strategies remain shared. The bounded
+parser is isolated as a serializer validator and a malformed-tree diagnostic.
+It is not the external loader or an inference engine. The former C evaluator
+is no longer compiled. The ONNX file contains feature/class/outcome metadata
+and can execute independently of R using its declared prepared inputs.
 
-The attachment's single class-0 weight encoding has an ONNX Runtime special
-case: positive-only binary weights can bypass the expected logistic conversion.
-Its handling of two class scores plus nonzero base_values is also ambiguous.
-The exported classifier therefore has two explicit class scores. Binary leaves
-write `[-weight, +weight]` and the constant intercept tree writes
-`[-logit(base_score), +logit(base_score)]`. LOGISTIC then produces complementary
-probabilities in independent runtimes. The same intercept-stump approach is used
-for multiclass scores. Regression uses standard base_values. Scalar logistic regression uses an explicit
-standard-domain Sigmoid after an untransformed regressor: ONNX Runtime 1.20.1
-does not apply TreeEnsembleRegressor LOGISTIC in its single-target fast path.
-This is a second correction to the attachment demonstrated by independent execution.
-Two-class softmax models use symmetric half-difference scores to preserve both
-probabilities and the binary label decision in reference runtimes.
+The S7 artifact retains embedded bytes or a documented byte-identical backing
+file, generic runtime input/output metadata, optional recognized task metadata
+and an external-pointer cache. RDS restoration checks the source SHA-256 and
+recreates the session. Unrecognized external graphs have no guessed features,
+class labels or tree counts. Saving stages exact bytes and preserves a backup
+until replacement succeeds; recovery failures identify the original backup.
 
-The constant intercept tree is visible in inspection: a converted classifier
-has one more ONNX tree than the source model. This intentional encoding
-preserves predictions without runtime-specific metadata interpretation.
+## Tensor and tidy interfaces
 
-## Performance and numerical contract
+The named tensor interface supports dense float32/float64/int32/int64 values.
+It validates names, shapes, symbolic dimension agreement, precision and size
+before creating native tensors. It explicitly transposes storage order for
+arbitrary supported rank. Outputs preserve names and dimension axes. Int64
+values outside exact R double range fail rather than lose information.
+Unbounded data-dependent outputs and unsupported value categories fail.
+A per-tensor bound does not guarantee a total runtime workspace limit.
 
-Nodes and weights occupy contiguous vectors. Input handoff borrows existing R
-column buffers; R ALTREP data may materialize before worker threads start.
-Metadata, pointer tables, output, and per-thread score workspace still allocate.
-There are no R API calls, allocations, or C++ exceptions inside the worker region.
-OpenMP distributes independent rows with an explicit per-call worker limit.
-Tree accumulation order remains fixed. Traversal is branch-dependent and is
-not claimed to achieve vectorized tree walking.
+Tidy predictions sit above named tensor inference and require a recognized
+tabular contract. The existing raw-vector/matrix result is retained. Binary
+class ties preserve the package rule; graph labels are exposed separately by
+onnx_run and verified independently in tests. One shared converter can encode
+parsnip's first-level-positive convention without changing direct conversion's
+numeric class-ID convention.
 
-Float32 arithmetic is preserved. Small differences in transcendental functions
-or base-score accumulation order mean bitwise equality with every external
-runtime is not promised. Validation uses explicit numerical tolerances.
-No fast-math or host-only instruction flags are injected because they can break
-NaN routing or portability. R's configured compiler, optimization, and OpenMP
-flags determine the build. Intel compiler users may select an appropriate
-toolchain through R's standard user Makevars configuration; Intel/AVX-512
-performance is not claimed without a measured production run.
+## Workflows and exclusions
 
-## Extensibility and deliberately bounded support
+A narrow S3 subclass delegates one call to the public fit generic, extracts the
+fitted engine and mold using public workflow accessors, validates the prepared
+contract and probes numerical parity, then attaches the S7 artifact. Ordinary
+workflow prediction retains its recipe. Unsupported conversions fail the fit.
+No private workflow extension hooks, recipe export, tuning or resampling hooks
+are used. Only supported XGBoost engines convert; only tested tensor mappings
+execute through the R interface. GPU and arbitrary ONNX support are not claimed.
 
-Serializer modules implement an abstract C++ Serializer interface and register
-in the bridge registry. Adding an adapter does not require editing the C
-inference core. Only XGBoost is registered in v1; lm, glm, randomForest, and
-LightGBM are future adapters, not aliases with partial conversions.
+## Primary references
 
-The loader supports a documented subset of ONNX-ML, plus a standard Sigmoid
-directly after a regression ensemble. It rejects unsupported
-operators, attribute encodings, graph pipelines, aggregation modes, and
-single-score binary encodings. It does not claim general ONNX compatibility.
-The engine is CPU-only. Inter-op concurrency is one; tuning values for GPU,
-float64 serialization, and unsupported graph optimization levels fail explicitly.
-
-## Sources
-
-- [ONNX 1.17 schema](https://github.com/onnx/onnx/blob/v1.17.0/onnx/onnx-ml.proto3)
-- [ONNX-ML operator definitions](https://github.com/onnx/onnx/blob/v1.17.0/onnx/defs/traditionalml/defs.cc)
-- [ONNX Runtime classifier aggregation](https://github.com/microsoft/onnxruntime/blob/v1.20.1/onnxruntime/core/providers/cpu/ml/tree_ensemble_aggregator.h)
-- [ONNX Runtime score transforms](https://github.com/microsoft/onnxruntime/blob/v1.20.1/onnxruntime/core/providers/cpu/ml/ml_common.h)
+- [Fixed runtime release](https://github.com/microsoft/onnxruntime/releases/tag/v1.31.1)
+- [Matching C API](https://github.com/microsoft/onnxruntime/blob/v1.31.1/include/onnxruntime/core/session/onnxruntime_c_api.h)
+- [Public workflow extraction](https://workflows.tidymodels.org/reference/extract-workflow.html)
+- [Public fit generic](https://generics.r-lib.org/reference/fit.html)
 - [XGBoost model IO](https://xgboost.readthedocs.io/en/stable/tutorials/saving_model.html)
-- [Nanopb 0.4.9.1](https://github.com/nanopb/nanopb/tree/0.4.9.1)

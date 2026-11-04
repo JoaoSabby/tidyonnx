@@ -1,21 +1,24 @@
 Package: tidyonnx
-Title: Native ONNX Tree Ensemble Serialization and Inference
-Version: 0.1.0
+Title: Native ONNX Serialization and Runtime Inference
+Version: 0.2.0
 Authors@R: person("Joao B. G.", "de Brito", email = "joao@sabby.com.br",
     role = c("aut", "cre"))
 Description: Converts numerical XGBoost tree ensembles to the Open Neural
-    Network Exchange format and evaluates supported ONNX tree graphs through
-    a self-contained C engine. Provides S7 model objects, automatic session
-    restoration, and predictable tibble predictions using a cpp11 bridge.
-    Includes Protocol Buffers sources for offline installation.
+    Network Exchange format and executes supported numeric tensors through
+    the ONNX Runtime C API. Provides S7 model objects, session restoration,
+    predictable tabular predictions, and direct workflow fit artifacts using
+    a cpp11 bridge. Installation downloads a verified, package-private CPU
+    runtime from the official fixed release.
 License: MIT + file LICENSE
 URL: https://github.com/JoaoSabby/tidyonnx
 BugReports: https://github.com/JoaoSabby/tidyonnx/issues
 Depends: R (>= 4.3.0)
-Imports: S7 (>= 0.2.0), tibble, jsonlite, parallel, stats
+Imports: S7 (>= 0.2.0), tibble, jsonlite, digest, stats, generics, utils
 LinkingTo: cpp11
-Suggests: testthat (>= 3.0.0), xgboost (>= 1.7.0)
+Suggests: testthat (>= 3.0.0), xgboost (>= 1.7.0), workflows, hardhat,
+    parsnip, recipes
 Config/testthat/edition: 3
 Encoding: UTF-8
-SystemRequirements: C17 (USE_C17), C++17; OpenMP (optional)
+SystemRequirements: C17 (USE_C17), C++17; ONNX Runtime 1.31.1 (downloaded at install)
 NeedsCompilation: yes
+ByteCompile: true

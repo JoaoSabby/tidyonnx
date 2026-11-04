@@ -1,24 +1,27 @@
-// Decode a bounded ONNX tree graph into immutable arrays before any prediction.
+// Isolated tree validation protects serializer invariants without executing a graph.
 #include "model.h"
 #include <set>
 #include <sstream>
 
 namespace tidyonnx {
 namespace {
+// Every wire field must fit inside its enclosing message before attribute access.
 std::vector<OnnxField> fields(OnnxSpan stream) {
   std::vector<OnnxField> result;
   OnnxField field;
   int status;
-  while ((status = tidyonnx_next_field(&stream, &field)) == 1) result.push_back(field);
+  while ((status = onnx_internal_next_field(&stream, &field)) == 1) result.push_back(field);
   require(status == 0, "Malformed or truncated ONNX Protocol Buffers data.");
   return result;
 }
+// Embedded zero bytes cannot participate in portable ONNX identifiers.
 std::string text(const OnnxField& field) {
   require(field.wire == 2, "Invalid ONNX string wire type.");
   std::string value(reinterpret_cast<const char*>(field.bytes.data), field.bytes.size);
   require(value.find('\0') == std::string::npos, "ONNX identifiers cannot contain NUL bytes.");
   return value;
 }
+// Tree identifiers are restricted to nonnegative signed integers.
 int64_t integer(const OnnxField& field) {
   require(field.wire == 0, "Invalid ONNX integer wire type.");
   require(field.integer <= static_cast<uint64_t>(INT64_MAX), "Unsupported negative ONNX identifier.");
@@ -47,11 +50,11 @@ Attribute attribute(OnnxSpan span, std::string& name) {
         while (packed.size) {
           if (field.tag == 7) {
             float value;
-            require(tidyonnx_read_packed_float(&packed, &value), "Truncated ONNX float array.");
+            require(onnx_internal_read_packed_float(&packed, &value), "Truncated ONNX float array.");
             result.floats.push_back(value);
           } else {
             uint64_t value;
-            require(tidyonnx_read_packed_integer(&packed, &value) &&
+            require(onnx_internal_read_packed_integer(&packed, &value) &&
               value <= static_cast<uint64_t>(INT64_MAX), "Invalid ONNX integer array.");
             result.integers.push_back(static_cast<int64_t>(value));
           }
@@ -78,6 +81,7 @@ const Attribute& get(const std::map<std::string, Attribute>& attributes,
   require(found != attributes.end(), "Missing ONNX attribute: " + name);
   return found->second;
 }
+// Delimited metadata restores the converter's original ordered names.
 std::vector<std::string> split_names(const std::string& value) {
   std::vector<std::string> result;
   std::istringstream stream(value);
@@ -86,6 +90,7 @@ std::vector<std::string> split_names(const std::string& value) {
   return result;
 }
 // Only a dense float [N,P] input is accepted; preprocessing graphs are never skipped.
+// The serializer validator accepts only the declared two-dimensional float input.
 int input_schema(OnnxSpan span, std::string& name) {
   int element_type = 0;
   std::vector<int64_t> dimensions;
@@ -113,6 +118,7 @@ int input_schema(OnnxSpan span, std::string& name) {
     "Expected a float32 [N, P] input with dynamic rows and a known feature count.");
   return static_cast<int>(dimensions[1]);
 }
+// Known node comparisons are mapped to compact validation identifiers.
 int mode_code(const std::string& mode) {
   const std::vector<std::string> modes = {"LEAF", "BRANCH_LT", "BRANCH_LEQ",
     "BRANCH_GT", "BRANCH_GTE", "BRANCH_EQ", "BRANCH_NEQ"};
@@ -122,6 +128,7 @@ int mode_code(const std::string& mode) {
 }
 }
 
+// Validate the bounded tree subset independently of runtime session creation.
 std::unique_ptr<Session> decode_model(const uint8_t* data, size_t size) {
   auto session = std::make_unique<Session>();
   std::map<std::string, std::string> metadata;

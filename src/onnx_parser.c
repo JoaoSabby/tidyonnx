@@ -3,7 +3,8 @@
 #include "nanopb/pb_decode.h"
 #include <string.h>
 
-int tidyonnx_read_packed_integer(OnnxSpan* stream, uint64_t* value) {
+/* Decode one bounded integer and advance the borrowed message span. */
+int onnx_internal_read_packed_integer(OnnxSpan* stream, uint64_t* value) {
   pb_istream_t input = pb_istream_from_buffer(stream->data, stream->size);
   if (!pb_decode_varint(&input, value)) return 0;
   size_t consumed = stream->size - input.bytes_left;
@@ -12,7 +13,8 @@ int tidyonnx_read_packed_integer(OnnxSpan* stream, uint64_t* value) {
   return 1;
 }
 
-int tidyonnx_read_packed_float(OnnxSpan* stream, float* value) {
+/* Reject incomplete fixed-width float values before reading their bytes. */
+int onnx_internal_read_packed_float(OnnxSpan* stream, float* value) {
   pb_istream_t input = pb_istream_from_buffer(stream->data, stream->size);
   if (!pb_decode_fixed32(&input, value)) return 0;
   stream->data += sizeof(float);
@@ -20,7 +22,8 @@ int tidyonnx_read_packed_float(OnnxSpan* stream, float* value) {
   return 1;
 }
 
-int tidyonnx_next_field(OnnxSpan* stream, OnnxField* field) {
+/* Preserve enclosing bounds while decoding supported protobuf wire categories. */
+int onnx_internal_next_field(OnnxSpan* stream, OnnxField* field) {
   if (stream->size == 0) return 0;
   pb_istream_t input = pb_istream_from_buffer(stream->data, stream->size);
   pb_wire_type_t wire;

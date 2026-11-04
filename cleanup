@@ -1,0 +1,3 @@
+#!/bin/sh
+# Remove platform makefiles generated from the common configure template.
+"${R_HOME}/bin/Rscript" --vanilla -e 'unlink(c("src/Makevars", "src/Makevars.win"))'
