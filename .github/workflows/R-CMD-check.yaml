@@ -13,7 +13,7 @@ permissions:
   contents: read
 jobs:
   fedora:
-    runs-on: ${{ inputs.runner || 'ubuntu-24.04' }}
+    runs-on: ${{ inputs.runner || vars.TIDYONNX_REFERENCE_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
