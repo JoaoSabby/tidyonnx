@@ -1,0 +1,15 @@
+# Report the effective GNU Make variables without changing the supplied configuration.
+$(info CC=$(CC))
+$(info CC17=$(CC17))
+$(info CFLAGS=$(CFLAGS))
+$(info C17FLAGS=$(C17FLAGS))
+$(info CXX17=$(CXX17))
+$(info CXX17FLAGS=$(CXX17FLAGS))
+$(info OPT_ARCH=$(OPT_ARCH))
+$(info OPT_FP=$(OPT_FP))
+$(info OPT_VECTOR=$(OPT_VECTOR))
+$(info LTO_FLAGS=$(LTO_FLAGS))
+$(info LDFLAGS=$(LDFLAGS))
+$(info SHLIB_LIBS=$(SHLIB_LIBS))
+$(info MAKEFLAGS=$(MAKEFLAGS))
+report:

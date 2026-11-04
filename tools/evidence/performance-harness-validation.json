@@ -1,0 +1,14 @@
+{
+  "status": "pass",
+  "platform": "x86_64-w64-mingw32",
+  "cases": 10,
+  "profiles": 2,
+  "repetitions": 2,
+  "process_blocks": 1,
+  "source_probabilities_exact": true,
+  "timer_medians_resolved": true,
+  "incorrect_predictions_rejected": true,
+  "zero_duration_ratios_rejected": true,
+  "workflow_yaml_parsed": true,
+  "limitation": "Harness smoke test only: both profile labels used the same installed Windows GCC build. No Intel/GCC performance result was measured."
+}

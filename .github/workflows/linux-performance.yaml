@@ -1,0 +1,94 @@
+name: Fedora Intel Makevars performance
+on:
+  push:
+    branches: [linux-performance-validation]
+  workflow_dispatch:
+    inputs:
+      makevars_path:
+        description: Repository-relative path to the exact supplied Makevars.001
+        required: true
+        default: tools/linux/Makevars.001
+permissions:
+  contents: read
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      MAKEVARS_FILE: ${{ inputs.makevars_path || 'tools/linux/Makevars.001' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require the original Makevars before allocating build time
+        shell: bash
+        run: |
+          # Stop explicitly when the requested compiler configuration is unavailable.
+          test -f "$MAKEVARS_FILE"
+      - name: Check real AVX-512 hardware before building
+        shell: bash
+        run: |
+          # Persist hardware evidence and fail early instead of silently executing a fallback ISA.
+          mkdir -p validation-results/linux-performance
+          lscpu | tee validation-results/linux-performance/runner-cpu.txt
+          grep -qw avx512f /proc/cpuinfo
+          grep -qw avx512bw /proc/cpuinfo
+          grep -qw avx512dq /proc/cpuinfo
+          grep -qw avx512vl /proc/cpuinfo
+          grep -qw avx512cd /proc/cpuinfo
+          grep -qw avx512_vnni /proc/cpuinfo
+      - name: Pin the current stable Fedora image
+        id: base
+        shell: bash
+        run: |
+          # Resolve the stable image once for the entire compiler matrix.
+          docker pull registry.fedoraproject.org/fedora:latest
+          image=$(docker image inspect registry.fedoraproject.org/fedora:latest --format '{{index .RepoDigests 0}}')
+          echo "$image" > validation-results/linux-performance/base-image.txt
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - name: Cache the compiled native R dependencies
+        uses: docker/build-push-action@v6
+        with:
+          context: "."
+          file: tools/linux/Dockerfile
+          target: native-r
+          build-args: FEDORA_IMAGE=${{ steps.base.outputs.image }}
+          cache-from: type=gha,scope=fedora-native-r
+          cache-to: type=gha,mode=max,scope=fedora-native-r
+      - name: Cache the fitted-model adapter dependencies
+        uses: docker/build-push-action@v6
+        with:
+          context: "."
+          file: tools/linux/Dockerfile
+          target: model-r
+          build-args: FEDORA_IMAGE=${{ steps.base.outputs.image }}
+          cache-from: |
+            type=gha,scope=fedora-native-r
+            type=gha,scope=fedora-model-r
+          cache-to: type=gha,mode=max,scope=fedora-model-r
+      - name: Build R model adapters and native Intel compiler
+        uses: docker/build-push-action@v6
+        with:
+          context: "."
+          file: tools/linux/Dockerfile
+          target: performance
+          build-args: FEDORA_IMAGE=${{ steps.base.outputs.image }}
+          tags: tidyonnx-fedora-matrix
+          load: true
+          cache-from: |
+            type=gha,scope=fedora-native-r
+            type=gha,scope=fedora-model-r
+            type=gha,scope=fedora-intel-r
+            type=gha,scope=fedora-performance
+          cache-to: type=gha,mode=max,scope=fedora-performance
+      - name: Measure conventional GCC and the supplied Intel Makevars
+        shell: bash
+        run: |
+          # The exact configuration and all samples remain in the uploaded evidence.
+          docker run --rm -e SOURCE_REVISION="$GITHUB_SHA" -v "$PWD/validation-results/linux-performance:/artifacts" tidyonnx-fedora-matrix bash tools/linux/run-performance.sh "$MAKEVARS_FILE" /artifacts/performance 2>&1 | tee validation-results/linux-performance/execution.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fedora-performance-${{ github.sha }}
+          path: validation-results/linux-performance
+          retention-days: 14
+          if-no-files-found: error

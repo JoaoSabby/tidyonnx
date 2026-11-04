@@ -187,3 +187,22 @@ The thread tests establish deterministic output under configured limits;
 they do not instrument observed worker counts or prove a speedup.
 No Intel oneAPI, AVX-512, GPU, large-model performance benchmark, exhaustive
 fuzzing, or general ONNX conformance result is claimed. No CRAN submission has been made.
+
+## Performance suite added: execution pending configuration authorization
+
+The performance harness now has dedicated Fedora/GCC/Intel orchestration and
+reports compilation/installation wall time separately from public API conversion,
+loading, and prediction. Its default run contains 28 cases with 21 samples per
+case and profile. The exact external Makevars is required; a missing file stops
+the workflow before the build.
+
+The local mechanism smoke test passed 10 cases with resolved timing medians and
+exact source probabilities. It used the same installed Windows GCC build under
+both profile labels solely to validate the harness. Injected prediction mismatch
+and zero-duration inputs were both rejected. R scripts and Bash syntax were
+checked; workflow YAML parsed; the native policy audit passed across 72 R files.
+`tools/evidence/performance-harness-validation.json` records these checks.
+
+This is not an Intel/GCC speed measurement. Execution using the user's local
+configuration remains pending authorization to publish that file to the public
+CI repository/artifact. The supplied local configuration was not uploaded.
