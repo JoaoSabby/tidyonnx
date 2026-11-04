@@ -206,3 +206,22 @@ needed, and independent equivalence tests before being listed as implemented.
 - [S7 generic functions](https://rconsortium.github.io/S7/reference/new_generic.html)
 - [S7 method registration](https://rconsortium.github.io/S7/reference/method-set.html)
 - [Workflow extraction and preprocessing boundaries](https://workflows.tidymodels.org/reference/extract-workflow.html)
+
+## 13. Native compiler profiles and observed performance
+
+The adapted Intel profile uses native architecture/tuning and generic tool paths.
+It retains an aggressive arithmetic mode and a separately measured strict control.
+Compiler selection requires both functional correctness and exact source-probability
+checks. A faster result from a numerically rejected profile is diagnostic only.
+The original site-specific configuration remains local; native binaries are tied
+to the compilation host's supported instruction set.
+
+The completed benchmark covers 28 cases, 21 samples per case/profile, and 1,764
+raw timing samples. GCC, Intel native fast, and Intel native strict each passed
+184 package expectations. GCC and Intel strict matched all 400,000 saved formatted
+probability values; the aggressive profile changed 37,404 values and was rejected.
+For 100,000 rows and 256 trees, GCC probability-output medians were 0.711 s with
+one worker and 0.461 s with two; Intel strict medians were 0.773 s and 0.534 s.
+These are hosted AMD EPYC measurements, not a general vendor ranking or a result
+for the BrotServer Xeon. VALIDATION.md links the tested revision, full samples,
+compiler commands, artifact fingerprints, and acceptance details.

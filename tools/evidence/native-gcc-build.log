@@ -1,0 +1,34 @@
+* installing *source* package 'tidyonnx' ...
+** this is package 'tidyonnx' version '0.1.0'
+** using staged installation
+** libs
+specified C++17
+using C compiler: 'gcc (GCC) 16.2.1 20261029 (Red Hat 16.2.1-3)'
+using C++ compiler: 'g++ (GCC) 16.2.1 20261029 (Red Hat 16.2.1-3)'
+using C++17
+g++ -std=c++17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include    -fpic  -O2  -c cpp11.cpp -o cpp11.o
+g++ -std=c++17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include    -fpic  -O2  -c bindings.cpp -o bindings.o
+g++ -std=c++17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include    -fpic  -O2  -c model.cpp -o model.o
+gcc -std=gnu17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include   -fopenmp -fpic  -O2 -c onnx_parser.c -o onnx_parser.o
+gcc -std=gnu17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include   -fopenmp -fpic  -O2 -c tree_ensemble.c -o tree_ensemble.o
+gcc -std=gnu17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include   -fopenmp -fpic  -O2 -c nanopb/pb_common.c -o nanopb/pb_common.o
+gcc -std=gnu17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include   -fopenmp -fpic  -O2 -c nanopb/pb_decode.c -o nanopb/pb_decode.o
+gcc -std=gnu17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include   -fopenmp -fpic  -O2 -c nanopb/pb_encode.c -o nanopb/pb_encode.o
+g++ -std=c++17 -I"/usr/include/R" -DNDEBUG -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT -I'/usr/lib64/R/library/cpp11/include' -I/usr/local/include    -fpic  -O2  -c serializers/xgb_serializer.cpp -o serializers/xgb_serializer.o
+g++ -std=c++17 -shared -L/usr/lib64/R/lib -o tidyonnx.so cpp11.o bindings.o model.o onnx_parser.o tree_ensemble.o nanopb/pb_common.o nanopb/pb_decode.o nanopb/pb_encode.o serializers/xgb_serializer.o -fopenmp -L/usr/lib64/R/lib -lR
+installing to /opt/performance-libs/gcc/00LOCK-workspace/00new/tidyonnx/libs
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+** help
+*** installing help indices
+  converting help for package 'tidyonnx'
+    finding HTML links ... done
+    onnx_model_io                           html  
+    tidyonnx                                html  
+** building package indices
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (tidyonnx)

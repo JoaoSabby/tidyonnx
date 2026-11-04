@@ -1,0 +1,4 @@
+profile,passed
+gcc,TRUE
+intel-native-strict,TRUE
+intel-makevars001,TRUE

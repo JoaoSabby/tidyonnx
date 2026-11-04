@@ -1,5 +1,90 @@
 # Validation record
 
+## Native compiler performance: completed 2026-11-04 UTC
+
+Run [41760546562](https://github.com/JoaoSabby/tidyonnx/actions/runs/41760546562)
+passed at source commit 524e0725b7e70ba46e65e57e0a3afe3d3a6bcc51. This is the
+full functional/benchmark revision; the earlier run 41757710800 validated the
+initial timing harness without the per-profile package-suite stage.
+
+The actual environment was Fedora Linux 44 stable, R 4.6.1, GCC 16.2.1, and Intel
+oneAPI DPC++/C++ Compiler 2026.2.0. The runner exposed four logical CPUs on an
+AMD EPYC 9V45. Intel detected `znver5` for `-march=native -mtune=native`.
+An AVX-512 intrinsic probe compiled for the native target executed successfully.
+The Fedora image digest was
+`sha256:cb3bd21415bd82a2fae1a9379f3f972fa8e78d460c9f86101274d13230dd6fd6`.
+
+### Configuration and acceptance
+
+The user's Makevars.001 was adapted to a standalone native profile with generic
+oneAPI paths. The original site configuration was not published. A separate local
+variant changes its architecture/tuning flags while retaining its other settings.
+The benchmark profile retains the enabled C/C++ optimization settings and full
+LTO, declares the C17/C++17 macros requested by tidyonnx, and omits inactive
+site-specific and unrelated Fortran/library setup. See
+`tools/linux/Makevars.intel-native` and its README for the exact adaptation.
+
+All three compiled packages passed **184 expectations**, with no skips, warnings,
+or failures in the package suite. The aggressive profile nevertheless failed the
+benchmark's stronger exact-probability requirement. The compiler also reported
+that explicit fast contraction overrides its fast floating-point preset; the
+recorded commands preserve the actual tested combination.
+
+| Profile | Package suite | Exact prediction checks | Maximum difference | Decision |
+| --- | --- | --- | --- | --- |
+| GCC O2 generic | 184 passed | 72/72 | 0 | Accepted |
+| Intel O3 native, aggressive arithmetic | 184 passed | 24/72 | 1.1920928955078125e-07 | Rejected |
+| Intel O3 native, strict arithmetic | 184 passed | 72/72 | 0 | Accepted |
+
+The 72 checks per profile comprise 24 unique prediction cases repeated in three
+process blocks. Independently reloading the saved full-batch RDS matrices verified
+all **400,000 formatted probability values** exactly for GCC and Intel strict.
+The aggressive profile changed 37,404 values across 18,702 model-row predictions, summed over the two 100,000-row outputs,
+including complete-data rows. No thresholded class changed in this fixture.
+The strict control uses `-fp-model=strict -fno-builtin-expf -ffp-contract=off`
+while retaining O3, native targeting, vectorization controls, and full LTO.
+
+### Measured times
+
+Each of 28 cases has 21 samples per profile, totaling 1,764 recorded timing
+samples. Source models, inputs, and reference probabilities are shared. Seven
+samples per case are measured in each of three independent process blocks with
+rotating profile order. Each profile uses the same GCC-calibrated call count.
+Calibration groups short calls until at least approximately 80 ms; grouping can
+overshoot that duration. Explicit collection before samples, model training,
+process startup, and file output are outside API timings. Automatic GC and public
+R API overhead remain inside. Loading measurements use warm filesystem caches.
+
+The following medians are for **100,000 rows, 256 trees, probability-tibble output**:
+
+| Profile | Build + install, seconds | Prediction, 1 worker, seconds | Prediction, 2 workers, seconds |
+| --- | --- | --- | --- |
+| GCC O2 generic | 3.638 | 0.711 | 0.461 |
+| Intel O3 native, aggressive | 4.454 | 0.747 | 0.523 |
+| Intel O3 native, strict | 4.286 | 0.773 | 0.534 |
+
+GCC had the lower medians in this scenario. These observations do not establish
+a general compiler ranking or predict performance on the BrotServer Xeon.
+A successful ISA probe also does not show that all tree traversal was vectorized.
+Raw samples, all 56 Intel/GCC case comparisons, IQRs, minima, and maxima are
+tracked in `tools/evidence/native-all-timings.csv` and
+`tools/evidence/native-performance-comparison.csv`.
+
+### Evidence
+
+Artifact [13290449302](https://github.com/JoaoSabby/tidyonnx/actions/runs/41760546562/artifacts/13290449302)
+contains source models, original and ONNX predictions, inputs, compilation
+commands, complete package-test logs, target detection, numerical checks, and
+raw timings. The 22,499,875-byte ZIP was downloaded and verified against SHA-256
+`5662c19e4c47dca88203215c7377c6d946507b6329a0b9b50fb2770550dd2214`.
+All eight fixture checksums were also verified locally. Its local extraction is
+`validation-results/native-performance-final`; the GitHub artifact expires
+on 2026-11-18. Compact provenance and prediction diagnostics are tracked in
+`tools/evidence/native-performance-provenance.json` and
+`tools/evidence/native-performance-prediction-audit.csv`.
+
+
+
 ## Model-matrix revision: 2026-11-03 (America/Sao_Paulo)
 
 The current public scope rejects XGBoost regression conversion and elastic net
@@ -185,10 +270,10 @@ configured worker limits.
 
 The thread tests establish deterministic output under configured limits;
 they do not instrument observed worker counts or prove a speedup.
-No Intel oneAPI, AVX-512, GPU, large-model performance benchmark, exhaustive
+At that historical baseline, no Intel oneAPI, AVX-512, GPU, large-model benchmark, exhaustive
 fuzzing, or general ONNX conformance result is claimed. No CRAN submission has been made.
 
-## Performance suite added: execution pending configuration authorization
+## Historical performance-harness preparation
 
 The performance harness now has dedicated Fedora/GCC/Intel orchestration and
 reports compilation/installation wall time separately from public API conversion,
@@ -204,5 +289,5 @@ checked; workflow YAML parsed; the native policy audit passed across 72 R files.
 `tools/evidence/performance-harness-validation.json` records these checks.
 
 This is not an Intel/GCC speed measurement. Execution using the user's local
-configuration remains pending authorization to publish that file to the public
+configuration at that stage remained pending authorization to publish it to the public
 CI repository/artifact. The supplied local configuration was not uploaded.

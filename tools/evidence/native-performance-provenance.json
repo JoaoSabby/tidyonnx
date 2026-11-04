@@ -1,0 +1,97 @@
+{
+  "run_id": 41760546562,
+  "run_url": "https://github.com/JoaoSabby/tidyonnx/actions/runs/41760546562",
+  "tested_source_commit": "524e0725b7e70ba46e65e57e0a3afe3d3a6bcc51",
+  "branch": "linux-performance-validation",
+  "operating_system": "Fedora Linux 44 stable container",
+  "base_image_digest": "sha256:cb3bd21415bd82a2fae1a9379f3f972fa8e78d460c9f86101274d13230dd6fd6",
+  "r_version": "4.6.1",
+  "gcc_version": "16.2.1",
+  "intel_version": "2026.2.0 (2026.2.0.20261001)",
+  "cpu": "AMD EPYC 9V45 96-Core Processor",
+  "logical_cpus_available": 4,
+  "native_target": "znver5",
+  "isa_probe": "AVX-512 PASS",
+  "source_configuration_sha256": "998a06d9f8531fe4179b8bfe993f8b29529cd441d0e6073d48dbdfa7161c74a0",
+  "local_native_variant_sha256": "8bc7b260bdd8b60ed0299b872aed9e5344b56fb91d577f0bdc2f5521e3699bbd",
+  "public_profile": "tools/linux/Makevars.intel-native",
+  "original_configuration_uploaded": false,
+  "adaptation": "Native architecture/tuning; standalone generic tool paths; explicit R C17/C++17 macros; disabled site-specific sections omitted; original input unchanged.",
+  "profiles": [
+    {
+      "name": "gcc",
+      "optimization": "-O2 generic",
+      "package_expectations": 184,
+      "package_tests_passed": true,
+      "exact_checks": 72,
+      "max_probability_difference": 0,
+      "decision": "accepted",
+      "build_install_seconds": 3.638163736,
+      "predict_100000_rows_256_trees_prob_seconds": {
+        "one_worker": 0.711,
+        "two_workers": 0.461
+      },
+      "total_checks": 72
+    },
+    {
+      "name": "intel-makevars001",
+      "optimization": "O3 native, full LTO, fast arithmetic",
+      "package_expectations": 184,
+      "package_tests_passed": true,
+      "exact_checks": 24,
+      "total_checks": 72,
+      "max_probability_difference": 1.1920928955078125e-7,
+      "decision": "rejected_prediction_mismatch",
+      "build_install_seconds": 4.454340409,
+      "predict_100000_rows_256_trees_prob_seconds": {
+        "one_worker": 0.747,
+        "two_workers": 0.523
+      }
+    },
+    {
+      "name": "intel-native-strict",
+      "optimization": "O3 native, full LTO, strict arithmetic",
+      "package_expectations": 184,
+      "package_tests_passed": true,
+      "exact_checks": 72,
+      "max_probability_difference": 0,
+      "decision": "accepted",
+      "build_install_seconds": 4.286429724,
+      "predict_100000_rows_256_trees_prob_seconds": {
+        "one_worker": 0.773,
+        "two_workers": 0.534
+      },
+      "total_checks": 72
+    }
+  ],
+  "cases_per_profile": 28,
+  "samples_per_case": 21,
+  "total_timing_samples": 1764,
+  "predictor_features": 16,
+  "training_rows": 4096,
+  "prediction_rows": [
+    1,
+    1000,
+    100000
+  ],
+  "trees": [
+    32,
+    256
+  ],
+  "seed": 20261103,
+  "source_probabilities_saved_before_conversion": true,
+  "full_formatted_probability_values_per_profile": 400000,
+  "strict_saved_probabilities_all_exact": true,
+  "fast_changed_values": 37404,
+  "fast_changed_rows": 18702,
+  "fast_changed_classes": 0,
+  "artifact_id": 13290449302,
+  "artifact_bytes": 22499875,
+  "artifact_sha256": "5662c19e4c47dca88203215c7377c6d946507b6329a0b9b50fb2770550dd2214",
+  "artifact_sha256_verified_locally": true,
+  "fixture_checksums_verified_locally": 8,
+  "artifact_expires_at": "2026-11-18T02:47:55Z",
+  "local_extraction": "validation-results/native-performance-final",
+  "limitations": "Same R and GCC-built XGBoost across profiles; hosted AMD runner, not the BrotServer Xeon. No universal compiler ranking or bitwise-equivalence guarantee. An ISA probe does not establish SIMD throughout tree traversal.",
+  "tested_profile_sha256": "98bcc82e69baf9251c42dd61892cf3e81ccec9eb00797fa64a1dc5f76d1b68b1"
+}

@@ -1,0 +1,4 @@
+"profile","checks","exact","max_difference","decision","package_tests_passed"
+"gcc",72,TRUE,0,"accepted",TRUE
+"intel-makevars001",72,FALSE,1.19209289550781e-07,"rejected_prediction_mismatch",TRUE
+"intel-native-strict",72,TRUE,0,"accepted",TRUE
