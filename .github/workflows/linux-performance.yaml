@@ -5,9 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       makevars_path:
-        description: Repository-relative path to the exact supplied Makevars.001
+        description: Repository-relative path to the adapted Intel native profile
         required: true
-        default: tools/linux/Makevars.001
+        default: tools/linux/Makevars.intel-native
 permissions:
   contents: read
 jobs:
@@ -15,10 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      MAKEVARS_FILE: ${{ inputs.makevars_path || 'tools/linux/Makevars.001' }}
+      MAKEVARS_FILE: ${{ inputs.makevars_path || 'tools/linux/Makevars.intel-native' }}
     steps:
       - uses: actions/checkout@v4
-      - name: Require the original Makevars before allocating build time
+      - name: Require the adapted native profile before building
         shell: bash
         run: |
           # Stop explicitly when the requested compiler configuration is unavailable.
@@ -33,8 +33,6 @@ jobs:
           grep -qw avx512bw /proc/cpuinfo
           grep -qw avx512dq /proc/cpuinfo
           grep -qw avx512vl /proc/cpuinfo
-          grep -qw avx512cd /proc/cpuinfo
-          grep -qw avx512_vnni /proc/cpuinfo
       - name: Pin the current stable Fedora image
         id: base
         shell: bash

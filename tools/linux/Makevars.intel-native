@@ -1,0 +1,58 @@
+# Standalone Intel native profile derived from the active Makevars.001 settings.
+# Tool locations come from the environment and contain no site-specific server paths.
+ONEAPI_ROOT ?= /opt/intel/oneapi
+COMPILER_BIN ?= $(ONEAPI_ROOT)/compiler/latest/bin
+COMPILER_LIB ?= $(ONEAPI_ROOT)/compiler/latest/lib
+CCACHE_BIN ?= /usr/bin/ccache
+TIDYONNX_FP_MODE ?= fast
+
+# R can select its C17 macros on the make command line; keep them independent.
+CC = $(CCACHE_BIN) $(COMPILER_BIN)/icx
+CC17 = $(CCACHE_BIN) $(COMPILER_BIN)/icx -std=gnu17
+CXX = $(CCACHE_BIN) $(COMPILER_BIN)/icpx
+CXX17 = $(CCACHE_BIN) $(COMPILER_BIN)/icpx
+CXX17STD = -std=gnu++17
+AR = $(COMPILER_BIN)/compiler/llvm-ar
+RANLIB = $(COMPILER_BIN)/compiler/llvm-ranlib
+NM = $(COMPILER_BIN)/compiler/llvm-nm
+ARFLAGS = rcs
+
+# Detect the compilation host instead of fixing the binary to Cascade Lake.
+OPT_ARCH = -march=native -mtune=native -mprefer-vector-width=512 -qopt-zmm-usage=high
+
+# Retain the requested aggressive arithmetic and provide a separately measured strict control.
+ifeq ($(TIDYONNX_FP_MODE),strict)
+OPT_FP = -fp-model=strict -fno-builtin-expf -ffp-contract=off
+else ifeq ($(TIDYONNX_FP_MODE),fast)
+OPT_FP = -fp-model=fast -fimf-use-svml=true -ffp-contract=fast -fno-math-errno -ftz
+else
+$(error TIDYONNX_FP_MODE must be fast or strict)
+endif
+
+# Keep the original enabled vectorization, code-generation, and full LTO settings.
+OPT_VECTOR = -qopenmp -fvec-with-mask -fvec-peel-loops -fvec-remainder-loops
+OPT_VECTOR += -qopt-for-throughput=single-job -qopt-dynamic-align
+OPT_VECTOR += -qopt-multiple-gather-scatter-by-shuffles -qopt-mem-layout-trans=3
+OPT_VECTOR += -qopt-streaming-stores=auto
+OPT_CODE = -O3 -fPIC -pipe -funroll-loops -fno-semantic-interposition -fstrict-aliasing
+OPT_CODE += -qopt-prefetch=5
+LTO_FLAGS = -flto=full
+COMMON_C_FLAGS = $(OPT_ARCH) $(OPT_FP) $(OPT_VECTOR) $(LTO_FLAGS) $(OPT_CODE)
+COMMON_CXX_FLAGS = $(COMMON_C_FLAGS)
+OPT_WARNINGS_C = -Wno-error -Wno-unused-command-line-argument -Wno-deprecated-declarations
+OPT_WARNINGS_CXX = $(OPT_WARNINGS_C) -Wno-deprecated-this-capture
+OPT_MACROS_C = -D_GNU_SOURCE -D_REENTRANT -DNDEBUG -DMKL_DIRECT_CALL
+OPT_MACROS_CXX = $(OPT_MACROS_C) -DARMA_NO_DEBUG -DARMA_USE_OPENMP -DARMA_USE_MKL_ALLOC
+OPT_MACROS_CXX += -DARMA_MAT_PREALLOC=1 -DEIGEN_NO_DEBUG
+CFLAGS = -std=gnu23 $(COMMON_C_FLAGS) $(OPT_WARNINGS_C) $(OPT_MACROS_C)
+C17FLAGS = -std=gnu17 $(COMMON_C_FLAGS) $(OPT_WARNINGS_C) $(OPT_MACROS_C)
+CXXFLAGS = -std=gnu++23 $(COMMON_CXX_FLAGS) $(OPT_WARNINGS_CXX) $(OPT_MACROS_CXX)
+CXX17FLAGS = $(CXX17STD) $(COMMON_CXX_FLAGS) $(OPT_WARNINGS_CXX) $(OPT_MACROS_CXX)
+SHLIB_OPENMP_CFLAGS = -qopenmp
+
+# Link the compiler runtime actually used; optional site libraries are not required by tidyonnx.
+LDFLAGS = $(LTO_FLAGS) -qopenmp -Wl,-rpath,$(COMPILER_LIB) -L$(COMPILER_LIB)
+LDFLAGS += -Wl,-O1 -Wl,-z,now -Wl,-z,relro -Wl,-z,combreloc
+LDFLAGS += -Wl,--sort-common -Wl,--as-needed
+SHLIB_LDFLAGS += -shared $(LDFLAGS)
+SHLIB_CXXLDFLAGS += -shared $(LDFLAGS)

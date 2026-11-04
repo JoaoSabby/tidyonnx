@@ -34,7 +34,7 @@ FROM intel-r AS performance
 RUN dnf -y install ccache && dnf clean all
 WORKDIR /workspace
 COPY . .
-CMD ["bash", "tools/linux/run-performance.sh", "tools/linux/Makevars.001"]
+CMD ["bash", "tools/linux/run-performance.sh", "tools/linux/Makevars.intel-native"]
 
 # Keep the standalone binary test as the default Docker build target.
 FROM native-r AS binary

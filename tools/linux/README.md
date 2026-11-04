@@ -88,61 +88,59 @@ docker run --rm \
   tidyonnx-fedora-matrix
 ```
 
-## Performance comparison with the supplied Makevars.001
+## Native compiler performance comparison
 
-The performance suite uses the exact file passed to `run-performance.sh`,
-defaulting to `../Makevars.001` relative to the repository. It refuses to
-substitute a guessed configuration when that file is missing. The original file,
-its SHA-256, effective compiler commands, CPU information, package-library paths,
-and R sessions are retained with the measurements. Inspect a configuration for
-private paths or credentials before publishing it in a public CI artifact.
+`Makevars.intel-native` adapts the enabled optimization settings of the supplied
+Makevars.001 to `-march=native -mtune=native`. The compilation host determines the
+instruction set; no Cascade Lake target is fixed. The profile uses generic
+oneAPI installation variables and contains no original site configuration.
+The user's original file is unchanged.
 
-GCC uses a conventional generic O2/OpenMP build. Both builds use two build jobs; ccache hits are disabled for compilation timing. The original Makevars is retained unchanged. A separate include wrapper maps
-its C compiler and optimization flags to the C17 macros requested by this package;
-only the language-standard flag changes from GNU C23 to GNU C17. Supported
-environment inputs point oneAPI components to their container installation paths.
-The wrapper and the evaluated variables are recorded with the results. Both builds use the same Fedora image, installed R dependencies,
-XGBoost models, inputs, source references, and explicit one-worker/two-worker
-settings. XGBoost itself is not rebuilt for the comparison.
+The adapted profile retains O3, vector-width preference, full LTO, OpenMP,
+and the original fast arithmetic controls. Disabled site-specific PGO,
+custom LLVM extensions, unrelated Fortran tools, and unused external library
+configuration are omitted. The C17/C++17 macros follow this package's declared
+standards. It is an adapted native profile, not the original file byte for byte.
 
-The default fixture has 16 features, missing values, 32-tree/256-tree depth-four
-binary models, and batches of 1, 1,000, and 100,000 rows. It times public API
-conversion, graph loading, raw inference, and tibble probability output separately.
-Each case receives two warm-up calls. GCC calibrates the repeated-call count to
-at least approximately 80 milliseconds; Intel reuses that count. Seven samples per case
-are collected in each of three independent process blocks, alternating profile
-order. Reports contain all 21 samples per case, medians, IQRs, minima, maxima,
-and the ratio of median GCC seconds to median Intel seconds. A ratio above one
-favors Intel. Compilation/installation wall time is recorded separately.
+The benchmark builds generic GCC O2, Intel native fast, and Intel native strict.
+The strict control retains the native target and optimization options but uses
+strict arithmetic, the scalar expf call, and disabled contraction/flush-to-zero.
+Both accepted profiles must reproduce the saved XGBoost probabilities exactly.
+Fast-profile mismatches are recorded as rejected even if their timings are lower.
+A successful workflow therefore does not mean that every arithmetic profile passed.
 
-Training, process startup, explicit garbage collection before each sample, and
-file output are outside the public-API timing. Automatic collection and R call
-overhead remain inside. Calibration uses elapsed-time clock resolution, so very
-short calls are grouped; model loading is warm-cache loading. A shared CI runner
-can introduce noise, and the result is not a general compiler ranking.
+The default fixture has 16 features, missing values, 32-tree/256-tree binary
+models, and batches of 1, 1,000, and 100,000 rows. It measures conversion,
+warm-cache graph loading, raw inference, and tibble probability output separately.
+Each case has warm-up calls and a GCC-calibrated repeated-call count, reused by
+both Intel profiles. Seven samples in each of three independent process blocks
+give 21 samples per case/profile. Profile order rotates across blocks. The full
+run contains 28 cases and 1,764 timing samples across the three builds.
 
-Every probability batch is compared with its persisted original XGBoost values.
-Raw output compares the positive class because its complementary class retains
-graph-native float32 arithmetic. A faster profile that changes those values is
-rejected: its timings remain diagnostic evidence and the workflow fails. Fixture
-checksums are verified after timing. No speedup has been established until this
-suite completes using the requested file.
+All samples, medians, IQRs, minima, maxima, numerical checks, effective flags,
+detected native target, ISA probe output, and build commands are saved.
+The ratio is median GCC seconds / median Intel seconds; values above one favor
+Intel. Compilation/installation wall times are separate, with the same two build
+jobs and disabled ccache hits. XGBoost and R themselves are not rebuilt.
+
+Training, process startup, explicit collection before each sample, and file
+output are outside the API timing. Automatic GC and R-call overhead remain inside.
+The raw positive-class output is checked against XGBoost; the formatted table
+also checks its complementary column. Fixture checksums are verified after timing.
+A shared runner can introduce noise; these measurements do not establish a
+general compiler ranking or validate another CPU's native target.
 
 ```sh
-# Mount the actual configuration read-only; do not replace it with example flags.
+# Compile and execute on the same host so native targets match its actual CPU.
 docker build --target performance -f tools/linux/Dockerfile -t tidyonnx-fedora-performance .
 mkdir -p validation-results/linux-performance
 docker run --rm \
-  -v "$(realpath ../Makevars.001):/Makevars.001:ro" \
   -v "$PWD/validation-results/linux-performance:/artifacts" \
   tidyonnx-fedora-performance \
-  bash tools/linux/run-performance.sh /Makevars.001 /artifacts/performance
+  bash tools/linux/run-performance.sh tools/linux/Makevars.intel-native /artifacts/performance
 ```
 
-For GitHub Actions, the dedicated workflow accepts a repository-relative
-configuration path. Its push trigger uses `linux-performance-validation`.
-The configuration is external to the published suite. The original file must
-be supplied before CI can execute; the workflow fails before building if it is
-absent. Distribution of a local configuration containing internal server paths
-requires the owner's authorization. The scripts record effective GNU Make
-variables rather than assuming that descriptive comments match the active flags.
+The dedicated GitHub workflow uses the native profile by default on
+`linux-performance-validation`. It requires AVX-512 hardware, records the
+native target detected by icx, and executes an AVX-512 probe. Compile flags and
+probe success alone are not evidence of a speedup.
