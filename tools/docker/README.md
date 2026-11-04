@@ -1,9 +1,9 @@
 # Fedora and Intel reference validation
 
-The reference environment is a Docker container containing the latest stable
+The configured reference target is a Docker container using the latest stable
 Fedora release, the latest stable CRAN R release compiled with Intel, and Intel
 oneAPI icx, icpx and ifx. GitHub Actions launches the container. Its Ubuntu host
-does not execute package validation. ONNX Runtime remains pinned to 1.31.1.
+does not execute package validation. ONNX Runtime remains pinned to 1.31.1. Image construction is not yet approved.
 
 ## Supplied profile
 
@@ -13,11 +13,11 @@ user-supplied file. Its SHA-256 is
 
 The adapter intel_profile.mk resolves the installed oneAPI compiler, MKL and
 TBB directories and explicitly selects Intel for packages requesting C17.
-It maps full LTO to the equivalent flag-only spelling and selects Intel's bundled
-LLVM linker after the system linker dropped required R exports. R uses its
-supported LTO integration. A separate shared-library/client probe checks exported
-functions and data before R compilation. These adapter differences are recorded
-explicitly. It preserves the profile's optimization settings, including Cascade Lake,
+It maps full LTO to the equivalent flag-only spelling; R uses its supported
+LTO integration. A shared-library/client probe checks exported functions and
+data before R compilation. The reference retains the system linker.
+The unsuccessful LLVM-linker workaround was removed; LLVM remains a diagnostic
+variant rather than an approved replacement. The profile retains Cascade Lake,
 512-bit vectors, fast floating-point arithmetic, FMA, flush-to-zero, full LTO
 and Intel OpenMP. Optional controls retain their supplied defaults.
 The original file is reference material; its comments are not newly authored
@@ -84,7 +84,11 @@ compiler versions, CPU information, image identity, R source hash, package versi
 per-phase logs, expectation counts, prediction comparisons and benchmarks.
 GitHub uploads them as fedora-intel-validation under each Actions run.
 
-See the current section of VALIDATION.md for executed results. Earlier Windows
+Reference approval is blocked. Twelve Intel attempts did not complete any
+tidyonnx package test: nine lacked the ISA, two failed R linkage and one
+reproduced the shared ABI failure with LLVM. The final isolation matrix did
+not run because its three assigned CPUs lacked AVX-512.
+See VALIDATION.md and validation_attempts.csv for exact executed results. Earlier Windows
 or GCC evidence does not establish success for this reference environment.
 
 ## Official sources

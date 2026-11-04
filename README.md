@@ -205,6 +205,6 @@ Windows result is historical and is not a Fedora result.
 
 The reference uses latest stable Fedora/R in Docker, Intel oneAPI and the supplied
 Makevars.001 profile. The original profile is preserved with a verified SHA-256.
-A compatible GitHub CPU passed the AVX-512 probe, but R compilation is still blocked;
+Compatible CPUs passed AVX-512 probes, but shared ABI validation and R compilation failed;
 no successful Intel package test result is claimed. See tools/docker/README.md
 and VALIDATION.md for exact run results and compatible-runner configuration.

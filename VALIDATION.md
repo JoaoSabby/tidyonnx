@@ -1,73 +1,116 @@
-# Current reference: Fedora Docker with Intel and supplied Makevars
+# Current reference: latest Fedora/R Docker with Intel and supplied Makevars
 
-As of 2026-11-04, the reference is the latest stable Fedora and latest stable
-CRAN R, compiled with Intel oneAPI using the supplied Makevars.001 profile.
-GitHub Actions runs all package validation inside that Docker container.
-ONNX Runtime remains the official precompiled 1.31.1 CPU release.
+The user-defined reference, as of 2026-11-04, is Docker with the latest stable
+Fedora and latest stable CRAN R, compiling with Intel and Makevars.001.
+GitHub Actions is the executor. Package tests do not run on the Windows host.
+ONNX Runtime stays pinned to the official precompiled 1.31.1 CPU release.
 
-The unchanged profile is tools/docker/reference/Makevars.001. SHA-256:
-998a06d9f8531fe4179b8bfe993f8b29529cd441d0e6073d48dbdfa7161c74a0.
-The adapter resolves container paths and the C17 compiler hook, and maps the
-full-LTO flag to its equivalent flag-only spelling and selects Intel's bundled
-LLVM linker for shared-library export compatibility. These adapter differences
-are explicit; the original reference file remains unchanged. The original
-Cascade Lake/AVX-512, fast arithmetic, FMA, flush-to-zero, LTO and OpenMP settings
-are preserved. There is no automatic compiler or architecture fallback.
+**Reference approval is blocked. No tidyonnx package test completed in the
+Intel reference environment.** Configuration is implemented; successful
+installation and numerical acceptance have not been established.
 
-**Intel execution status: R shared-library linkage failed on a compatible CPU.**
-The final tested configuration is commit
-24d4b04c364eeef8f193574b861a769550a2b735 on test/fedora-docker-20261104.
-The latest run is https://github.com/JoaoSabby/tidyonnx/actions/runs/41787360480.
+## Attempted environment and immutable profile
 
-| Run | Host label | Exact observed result |
-| --- | --- | --- |
-| 41786051570 | ubuntu-latest (Ubuntu 26.04) | Fedora 45 and signed Intel compiler packages 2026.2.0-863 installed; the CPU guard rejected missing AVX-512/VNNI before R compilation and package tests. |
-| 41786900653 | ubuntu-24.04 | Fedora 45 CPU preflight found AMD EPYC 7763; avx512f absent; image construction stopped before toolchain installation. |
-| 41787092093 | ubuntu-22.04 | The same EPYC 7763 and missing avx512f blocked the container preflight. |
-| 41787360480 | ubuntu-24.04 | Runner-selection configuration reproduced the same hardware block. |
-| 41787778315 | ubuntu-24.04 | Intel Xeon Platinum 8370C passed CPU checks and the AVX-512 VNNI execution probe. R 4.6.2 compilation reached linking, then R.bin failed to resolve three required libR exports. |
+- Fedora 45 was resolved from official metadata and pulled by numeric tag.
+  Per-run image digests are retained in the build logs. The registry image
+  changed during these attempts; a single digest is not assumed for all runs.
+- CRAN R 4.6.2 source passed the required official-announcement SHA-256 check:
+  c297040f6392b1dac6e5c0eb398422cfdaedf540ae2205edb9ad0d10cb10ee00.
+  Intel compilation reached linking but did not finish installation.
+- Signed Intel compiler packages 2026.2.0-863 and MKL development packages
+  2026.2.0-881 installed on compatible runs. Intended drivers are icx, icpx
+  and ifx. Actual commands are retained in the build logs.
+- tools/docker/reference/Makevars.001 is byte-identical to the supplied
+  J:/Projetos/BrotServer/scripts/Makevars.001. SHA-256:
+  998a06d9f8531fe4179b8bfe993f8b29529cd441d0e6073d48dbdfa7161c74a0.
+  Git blob a1f2fc1b95fd4c5d51661813e81e03645a46574c and .gitattributes
+  preserve its original bytes and line endings.
+- The adapter resolves oneAPI/MKL/TBB paths, selects Intel for C17 requests
+  and spells full LTO as -flto. The original -flto=full spelling produced an
+  ifx invalid-argument warning. Flag-only LTO retains full mode. R uses its
+  supported --enable-lto integration.
+- Cascade Lake/AVX-512, O3, fast arithmetic, FMA, flush-to-zero, full LTO and
+  Intel OpenMP remain selected. No conservative arithmetic or architecture
+  fallback is accepted. Historical OS/R comments in the supplied file do
+  not override the user's current Fedora/R target.
 
-All five runs ended with workflow failure; their artifact-upload steps succeeded.
-The compatible run used Fedora 45, Intel compilers 2026.2.0 and MKL. A correction
-using R's supported LTO configuration and explicit retention of the required
-R library did not resolve the error in run 41789766080. Symbol diagnostics showed
-the three definitions in LLVM objects but absent from libR. The next configuration
-selects Intel's bundled LLVM linker and adds an executable shared-export probe.
-The arithmetic settings and full LTO remain enabled. No successful R or package
-result is claimed.
-No Intel package installation, testthat case, independent prediction comparison,
-benchmark or R CMD check completed. Those acceptance phases remain blocked.
-The R 4.6.2 source build with this Intel profile has not completed successfully.
-The supplied profile hash was preserved and checked; its arithmetic settings
-were not relaxed. Existing numerical tolerances, missing-value tests and the
-strict package-check gate remain unchanged. The two known Rd warnings are not waived.
+## Exact executed results
 
-The repository has zero registered self-hosted runners (queried through the
-authenticated GitHub API). Standard host labels do not guarantee the required ISA.
-To resume, provide an existing GitHub runner exposing all required CPU features,
-select its label through the workflow runner input, or set repository variable
-TIDYONNX_REFERENCE_RUNNER for push/PR runs. No paid runner or external server
-was provisioned, and no emulated execution was counted as reference evidence.
+Twelve Intel attempts ended with workflow failure: nine lacked AVX-512,
+two failed R shared-library linkage, and one reproduced an ABI failure in
+a minimal shared-library/client program. All twelve artifact-upload steps
+succeeded. Commits, CPUs, stages, artifact IDs and archive SHA-256 values are
+recorded in tools/docker/validation_attempts.csv.
 
-The final artifact is fedora-intel-validation, ID 13301787294, SHA-256
-87c1c15b0d6c9bae6f73dbe961940a809433ef0e833fdd8fc1ec92febdfde892.
-Artifacts from the five Intel attempts were downloaded locally and their
-published SHA-256 values verified under validation-results/fedora-github/.
-Only static R/shell syntax, source policy review and Git whitespace checks were
-performed on Windows during this transition; these are not package test results.
+| Run | Observed result |
+| --- | --- |
+| [41786051570](https://github.com/JoaoSabby/tidyonnx/actions/runs/41786051570) | Signed Intel packages installed; the CPU guard rejected missing AVX-512/VNNI. CPU model was not recorded. |
+| [41786900653](https://github.com/JoaoSabby/tidyonnx/actions/runs/41786900653) | EPYC 7763 lacked avx512f; Fedora container preflight stopped image construction. |
+| [41787092093](https://github.com/JoaoSabby/tidyonnx/actions/runs/41787092093) | EPYC 7763 lacked avx512f; Fedora container preflight stopped image construction. |
+| [41787360480](https://github.com/JoaoSabby/tidyonnx/actions/runs/41787360480) | EPYC 7763 lacked avx512f; Fedora container preflight stopped image construction. |
+| [41787778315](https://github.com/JoaoSabby/tidyonnx/actions/runs/41787778315) | Xeon Platinum 8370C passed AVX-512 VNNI execution; R.bin failed to resolve three required libR exports. |
+| [41789469437](https://github.com/JoaoSabby/tidyonnx/actions/runs/41789469437) | EPYC 7763 lacked avx512f; Fedora container preflight stopped image construction. |
+| [41789649630](https://github.com/JoaoSabby/tidyonnx/actions/runs/41789649630) | EPYC 7763 lacked avx512f; Fedora container preflight stopped image construction. |
+| [41789766080](https://github.com/JoaoSabby/tidyonnx/actions/runs/41789766080) | Xeon Platinum 8370C passed the execution probe. Supported R LTO integration and explicit retention of libR did not fix linkage. Definitions existed in LLVM objects but were absent from libR. |
+| [41791543761](https://github.com/JoaoSabby/tidyonnx/actions/runs/41791543761) | Xeon 6975P-C passed the execution probe. Intel LLVM linkage also failed a minimal shared-library/client test: exported function and data symbols could not be resolved. |
+| [41792710248](https://github.com/JoaoSabby/tidyonnx/actions/runs/41792710248) | Final flag-isolation configuration stopped at CPU preflight; the matrix did not execute. |
+| [41793007222](https://github.com/JoaoSabby/tidyonnx/actions/runs/41793007222) | Manual diagnostic repeat stopped at CPU preflight; the matrix did not execute. |
+| [41793397975](https://github.com/JoaoSabby/tidyonnx/actions/runs/41793397975) | Second manual diagnostic repeat stopped at CPU preflight; the matrix did not execute. |
 
-The earlier GCC preparation run 41783842103 compiled R 4.6.2 on Fedora 45 but
-stopped at the installed-version probe before package tests. The bootstrap R
-environment isolation was corrected for the following run, 41785046999. That
-auxiliary GCC execution was cancelled after the reference changed to Intel;
-it has no accepted result and cannot approve the Intel reference.
+The final executable configuration is commit
+40bfe0561d3f29836df4343f23545de0e13ed72f on test/fedora-docker-20261104.
+Its three attempts stopped at CPU preflight. The new flag-isolation matrix
+has not executed and cannot yet identify a single offending option.
 
-Each launch resolves official latest stable release metadata. Logs and provenance
-are retained in validation-results/fedora/<run-id>/ and GitHub Actions artifacts.
-See tools/docker/README.md for commands, compiler scope and evidence contents.
+The R link failures named R_running_as_main_program, Rf_initialize_R and
+Rf_mainloop. The minimal test failed for onnx_internal_shared_value and
+onnx_internal_shared_probe. These are ABI failures before package validation,
+not ONNX numerical comparison results.
 
-The following record describes the earlier Windows implementation at 2d894b7.
-Its results are historical and do not validate the Intel Docker configuration.
+The unsuccessful LLVM-linker and explicit-libR-retention workarounds were
+removed from the reference. LLVM linkage remains a diagnostic variant.
+The matrix also diagnoses visibility, semantic interposition, memory layout
+and disabled LTO. Variants are labelled diagnostic and cannot approve a
+failed reference profile. No option was removed to manufacture acceptance.
+
+## Blocked validation and retained warnings
+
+Intel R installation, tidyonnx build/install, testthat tests, independent
+ONNX Runtime comparisons, workflow conversion, persistence, benchmarks,
+native dependency inspection and R CMD check remain blocked. There are no
+Intel package pass/fail/skip counts to report. The historical Windows
+280-expectation result below is not reference approval.
+
+Current container benchmark tooling compares current tidyonnx with XGBoost.
+The previous-evaluator benchmark has not been reproduced in Fedora.
+No performance improvement or native peak-memory claim is made.
+
+The compiler warned that -ffp-contract=fast overrides -ffp-model=fast.
+No numerical conclusion is inferred from this warning. GitHub warned that
+the v4 actions target deprecated Node.js 20 and were executed with Node.js 24.
+The two historical Rd warnings remain unresolved and are not waived by the
+strict package-check gate. No new R CMD check result was obtained.
+
+At closure, the authenticated GitHub API still listed no self-hosted runners.
+Standard host labels do not guarantee AVX-512. Approval requires a stable
+compatible executor and a compiler/profile combination passing shared ABI
+validation. A compatible label can be selected through the runner workflow
+input or repository variable TIDYONNX_REFERENCE_RUNNER. No paid runner,
+emulation, main merge or package release was introduced.
+
+All twelve Intel artifacts were downloaded to
+validation-results/fedora-github/<run-id>/ and their published SHA-256 values
+verified. Latest artifact: 13304660295, SHA-256
+9f1e1a30702772419ca8a655b755d1c4e9f828930b11cc21a9d6cc5d7102435f.
+
+Windows work during this transition consisted of editing, static syntax/text
+inspection, Git checks and evidence retrieval. Static parsing emitted four
+locale-configuration warnings; those are not package test results.
+
+Earlier GCC preparation run 41783842103 compiled R 4.6.2 but failed the
+installed-version probe. Bootstrap R environment isolation was corrected
+in 41785046999, which was cancelled after the reference changed to Intel.
+Neither run provides accepted Intel evidence.
 
 ---
 
