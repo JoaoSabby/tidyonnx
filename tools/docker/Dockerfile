@@ -18,6 +18,8 @@ COPY tools/docker/reference/Makevars.001 /opt/tidyonnx/profile/Makevars.001
 COPY tools/docker/intel_profile.mk /opt/tidyonnx/intel_profile.mk
 COPY tools/docker/intel_tools.mk /opt/tidyonnx/intel_tools.mk
 COPY tools/docker/cascade_probe.cpp /opt/tidyonnx/cascade_probe.cpp
+COPY tools/docker/shared_library_probe.c /opt/tidyonnx/shared_library_probe.c
+COPY tools/docker/shared_client_probe.c /opt/tidyonnx/shared_client_probe.c
 COPY tools/docker/intel_entrypoint.sh /opt/tidyonnx/intel_entrypoint.sh
 COPY tools/docker/latest_versions.R /opt/tidyonnx/latest_versions.R
 COPY tools/docker/fedora_setup.R /opt/tidyonnx/fedora_setup.R

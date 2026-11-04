@@ -38,8 +38,8 @@ variables <- c("CC", "CFLAGS", "CPP", "CPPFLAGS", "CXX", "CXXFLAGS", "CXX17",
 settings <- setNames(lapply(variables, onnx_internal_profile_value), variables)
 do.call(Sys.setenv, settings)
 Sys.setenv(LTO = onnx_internal_profile_value("LTO_FLAGS"), LTO_FC = "-flto")
-if (system2("make", c("-f", shQuote(profile), "cpu_probe")) != 0L) {
-  stop("The Intel Cascade Lake execution probe failed.")
+if (system2("make", c("-f", shQuote(profile), "cpu_probe", "shared_probe")) != 0L) {
+  stop("An Intel CPU or full-LTO shared export probe failed.")
 }
 versions <- lapply(c("icx", "icpx", "ifx"), function(command) {
   result <- system2(command, "--version", stdout = TRUE)
@@ -47,8 +47,13 @@ versions <- lapply(c("icx", "icpx", "ifx"), function(command) {
   result
 })
 names(versions) <- c("icx", "icpx", "ifx")
+linker <- file.path(dirname(settings$NM), "ld.lld")
+if (!file.exists(linker)) stop("The Intel bundled LLVM linker is unavailable.")
+linker_version <- system2(linker, "--version", stdout = TRUE)
+if (!is.null(attr(linker_version, "status"))) stop("The Intel LLVM linker cannot execute.")
 jsonlite::write_json(list(profile_sha256 = profile_hash, compilers = versions,
-  evaluated_variables = settings, cpu_features_required = required),
+  evaluated_variables = settings, cpu_features_required = required,
+  adapter = list(full_lto_spelling = "-flto", linker = linker, version = linker_version)),
   "/opt/tidyonnx/intel-environment.json", auto_unbox = TRUE, pretty = TRUE)
 
 release <- onnx_internal_latest_r()
@@ -81,19 +86,7 @@ status <- system2("sh", c("configure", "--prefix=/opt/R/latest", "--enable-R-shl
 if (status != 0L) stop("Configuration of the latest stable R release failed.")
 jobs <- Sys.getenv("TIDYONNX_BUILD_JOBS", "2")
 if (!grepl("^[1-9][0-9]*$", jobs)) stop("TIDYONNX_BUILD_JOBS must be a positive integer.")
-# The required R library must survive as-needed resolution before LTO expands Rmain.
-main_makefile <- readLines("src/main/Makefile", warn = FALSE)
-main_library <- sub("^R_bin_LDADD[[:space:]]*=[[:space:]]*", "",
-  grep("^R_bin_LDADD[[:space:]]*=", main_makefile, value = TRUE))
-if (length(main_library) != 1L || !grepl("(^|[[:space:]])-lR([[:space:]]|$)",
-    main_library)) {
-  stop("Cannot identify the required shared R library in its generated Makefile.")
-}
-main_library <- sub("(^|[[:space:]])-lR([[:space:]]|$)",
-  "\\1-Wl,--no-as-needed -lR -Wl,--as-needed\\2", main_library)
-link_argument <- shQuote(paste0("R_bin_LDADD=", main_library))
-cat("Required R executable library binding: ", main_library, "\n", sep = "")
-build_status <- system2("make", c(paste0("-j", jobs), link_argument))
+build_status <- system2("make", paste0("-j", jobs))
 if (build_status != 0L) {
   # Symbol diagnostics distinguish missing exports from premature dependency removal.
   for (candidate in c("lib/libR.so", "src/main/libR.so", "src/unix/system.o",
@@ -107,7 +100,7 @@ if (build_status != 0L) {
   }
   stop("Compilation of the latest stable R release failed; symbol diagnostics retained.")
 }
-if (system2("make", c("install", link_argument)) != 0L) {
+if (system2("make", "install") != 0L) {
   stop("Installation of the latest stable R release failed.")
 }
 # The bootstrap R home must not override the freshly compiled R installation.

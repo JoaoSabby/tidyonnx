@@ -13,9 +13,11 @@ user-supplied file. Its SHA-256 is
 
 The adapter intel_profile.mk resolves the installed oneAPI compiler, MKL and
 TBB directories and explicitly selects Intel for packages requesting C17.
-It maps ifx full LTO to the equivalent flag-only spelling. R is configured with
-its supported LTO integration and its required libR dependency is retained
-explicitly during as-needed resolution. It preserves the profile's optimization settings, including Cascade Lake,
+It maps full LTO to the equivalent flag-only spelling and selects Intel's bundled
+LLVM linker after the system linker dropped required R exports. R uses its
+supported LTO integration. A separate shared-library/client probe checks exported
+functions and data before R compilation. These adapter differences are recorded
+explicitly. It preserves the profile's optimization settings, including Cascade Lake,
 512-bit vectors, fast floating-point arithmetic, FMA, flush-to-zero, full LTO
 and Intel OpenMP. Optional controls retain their supplied defaults.
 The original file is reference material; its comments are not newly authored

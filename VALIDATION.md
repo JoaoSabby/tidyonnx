@@ -8,8 +8,9 @@ ONNX Runtime remains the official precompiled 1.31.1 CPU release.
 The unchanged profile is tools/docker/reference/Makevars.001. SHA-256:
 998a06d9f8531fe4179b8bfe993f8b29529cd441d0e6073d48dbdfa7161c74a0.
 The adapter resolves container paths and the C17 compiler hook, and maps the
-ifx full-LTO flag to its equivalent flag-only spelling. R's shared-library link
-retains its required libR dependency explicitly during as-needed/LTO resolution. The original
+full-LTO flag to its equivalent flag-only spelling and selects Intel's bundled
+LLVM linker for shared-library export compatibility. These adapter differences
+are explicit; the original reference file remains unchanged. The original
 Cascade Lake/AVX-512, fast arithmetic, FMA, flush-to-zero, LTO and OpenMP settings
 are preserved. There is no automatic compiler or architecture fallback.
 
@@ -29,7 +30,11 @@ The latest run is https://github.com/JoaoSabby/tidyonnx/actions/runs/41787360480
 All five runs ended with workflow failure; their artifact-upload steps succeeded.
 The compatible run used Fedora 45, Intel compilers 2026.2.0 and MKL. A correction
 using R's supported LTO configuration and explicit retention of the required
-R library is prepared for the next run. No successful R or package result is claimed.
+R library did not resolve the error in run 41789766080. Symbol diagnostics showed
+the three definitions in LLVM objects but absent from libR. The next configuration
+selects Intel's bundled LLVM linker and adds an executable shared-export probe.
+The arithmetic settings and full LTO remain enabled. No successful R or package
+result is claimed.
 No Intel package installation, testthat case, independent prediction comparison,
 benchmark or R CMD check completed. Those acceptance phases remain blocked.
 The R 4.6.2 source build with this Intel profile has not completed successfully.
