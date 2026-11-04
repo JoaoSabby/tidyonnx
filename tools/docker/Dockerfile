@@ -1,6 +1,9 @@
 ARG FEDORA_IMAGE=registry.fedoraproject.org/fedora:latest
 FROM $FEDORA_IMAGE
 
+COPY tools/docker/check_cpu.sh /opt/tidyonnx/check_cpu.sh
+RUN sh /opt/tidyonnx/check_cpu.sh
+
 RUN dnf -y upgrade --refresh && dnf -y install \
     R-core R-devel R-jsonlite gcc gcc-c++ gcc-gfortran make cmake ccache procps-ng \
     curl tar gzip bzip2 xz unzip git which findutils diffutils file binutils \
