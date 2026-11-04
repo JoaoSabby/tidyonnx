@@ -14,6 +14,5 @@ include /opt/tidyonnx/profile/Makevars.001
 CC17 = $(CC) -std=gnu17
 C17FLAGS = $(filter-out -std=gnu23,$(CFLAGS))
 
-# ifx uses the flag-only spelling for full LTO; the default optimization is unchanged.
-FFLAGS := $(subst -flto=full,-flto,$(FFLAGS))
-FCFLAGS := $(subst -flto=full,-flto,$(FCFLAGS))
+# Flag-only LTO selects full mode for C, C++ and Fortran without rejected ifx arguments.
+LTO_FLAGS := $(subst -flto=full,-flto,$(LTO_FLAGS))
