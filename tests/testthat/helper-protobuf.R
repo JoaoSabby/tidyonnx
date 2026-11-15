@@ -51,15 +51,23 @@ wire_fields <- function(bytes) {
   result
 }
 
-wire_edit_node <- function(bytes, edit) {
+WireEditGraph <- function(bytes, edit){
   model <- wire_fields(bytes)
-  graph_index <- which(vapply(model, function(field) field$tag == 7, logical(1)))
-  graph <- wire_fields(model[[graph_index]]$value)
-  node_index <- which(vapply(graph, function(field) field$tag == 1, logical(1)))[1L]
-  node <- edit(wire_fields(graph[[node_index]]$value))
-  graph[[node_index]]$raw <- wire_message(1, do.call(c, lapply(node, "[[", "raw")))
-  model[[graph_index]]$raw <- wire_message(7, do.call(c, lapply(graph, "[[", "raw")))
+  graphIndex <- which(vapply(model, function(field) field$tag == 7, logical(1)))
+  graph <- edit(wire_fields(model[[graphIndex]]$value))
+  model[[graphIndex]]$raw <- wire_message(7, do.call(c, lapply(graph, "[[", "raw")))
+
   do.call(c, lapply(model, "[[", "raw"))
+}
+
+wire_edit_node <- function(bytes, edit, node = 1L){
+  WireEditGraph(bytes, function(graph){
+    nodeIndex <- which(vapply(graph, function(field) field$tag == 1, logical(1)))[node]
+    fields <- edit(wire_fields(graph[[nodeIndex]]$value))
+    graph[[nodeIndex]]$raw <- wire_message(1, do.call(c, lapply(fields, "[[", "raw")))
+
+    graph
+  })
 }
 
 wire_edit_attribute <- function(bytes, name, values, unpacked = FALSE) {

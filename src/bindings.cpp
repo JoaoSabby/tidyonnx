@@ -104,18 +104,20 @@ cpp11::sexp cpp_predict_model(SEXP pointer, SEXP data, cpp11::integers indices,
     columns[column].integer = TYPEOF(values) == INTSXP;
     columns[column].stride = 1;
     // Materialize ALTREP only on the main R thread before OpenMP can access storage.
-    if (TYPEOF(values) == REALSXP) {
-      const double* source = REAL(values) + offset;
-      columns[column].data = source;
-      for (int row = 0; row < rows; ++row) {
-        tidyonnx::require(!std::isinf(source[row]), "Infinite predictor values are not supported.");
-      }
-    } else columns[column].data = INTEGER(values) + offset;
+    columns[column].data = columns[column].integer
+      ? static_cast<const void*>(INTEGER(values) + offset)
+      : static_cast<const void*>(REAL(values) + offset);
   }
+
+  // Validate even unused columns before allocating prediction output.
+  int effective_threads = tidyonnx_has_openmp() ? std::min(threads, std::max(rows, 1)) : 1;
+  cpp11::check_user_interrupt();
+  tidyonnx::require(tidyonnx_validate_columns(columns.data(), columns_count,
+    static_cast<size_t>(rows), effective_threads), "Infinite predictor values are not supported.");
+
   size_t output_size = static_cast<size_t>(rows) * static_cast<size_t>(model->num_targets);
   tidyonnx::require(output_size <= static_cast<size_t>(R_XLEN_T_MAX), "Prediction output is too large.");
   cpp11::writable::doubles output(output_size);
-  int effective_threads = tidyonnx_has_openmp() ? std::min(threads, std::max(rows, 1)) : 1;
   std::vector<float> workspace(static_cast<size_t>(effective_threads) * model->num_targets);
   TidyOnnxEnsemble ensemble{
     model->nodes.data(), model->weights.data(), model->roots.data(),

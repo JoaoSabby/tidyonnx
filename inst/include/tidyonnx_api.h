@@ -34,6 +34,9 @@ typedef struct {
   int num_targets;
   int transform;
 } TidyOnnxEnsemble;
+/* Returns zero if any real-valued column contains an infinity. */
+int tidyonnx_validate_columns(const TidyOnnxColumn* columns, size_t num_columns,
+  size_t num_rows, int threads);
 /* Output is column-major so the caller can write directly into an R matrix. */
 void tidyonnx_predict(const TidyOnnxEnsemble* model,
   const TidyOnnxColumn* columns, size_t num_rows, double* output, int threads,

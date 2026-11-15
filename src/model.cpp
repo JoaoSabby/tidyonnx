@@ -28,10 +28,14 @@ int64_t integer(const OnnxField& field) {
 Attribute attribute(OnnxSpan span, std::string& name) {
   Attribute result;
   bool value_present = false;
+  bool scalar_float_present = false;
   for (const auto& field : fields(span)) {
     if (field.tag == 1) name = text(field);
-    else if (field.tag == 20) result.type = static_cast<int>(integer(field));
-    else if (field.tag == 3) {
+    else if (field.tag == 20) {
+      auto type = integer(field);
+      require(type >= 1 && type <= 8, "Invalid or unsupported ONNX attribute.");
+      result.type = static_cast<int>(type);
+    } else if (field.tag == 3) {
       result.integers.push_back(integer(field));
       value_present = true;
     } else if (field.tag == 4 || field.tag == 9) {
@@ -59,17 +63,20 @@ Attribute attribute(OnnxSpan span, std::string& name) {
       }
     } else if (field.tag == 2 && field.wire == 5) {
       result.floats.push_back(field.floating);
+      scalar_float_present = true;
       value_present = true;
     } else if (field.tag != 13) {
       throw std::runtime_error("Unsupported tensor-valued or referenced ONNX attribute.");
     }
   }
-  require(!name.empty() && value_present && result.type >= 1 && result.type <= 8,
+  require(!name.empty() && value_present && result.type != 0,
     "Invalid or unsupported ONNX attribute.");
   require((result.type == 2 || result.type == 7) ? result.floats.empty() && result.strings.empty() :
     (result.type == 1 || result.type == 6) ? result.integers.empty() && result.strings.empty() :
     (result.type == 3 || result.type == 8) && result.integers.empty() && result.floats.empty(),
     "ONNX attribute values do not match their declared type.");
+  require(name != "nodes_hitrates" || !scalar_float_present,
+    "ONNX nodes_hitrates must use repeated float fields.");
   return result;
 }
 const Attribute& get(const std::map<std::string, Attribute>& attributes,
@@ -109,8 +116,8 @@ int input_schema(OnnxSpan span, std::string& name) {
     }
   }
   require(element_type == 1 && dimensions.size() == 2 && dimensions[1] > 0 &&
-    dimensions[1] <= INT_MAX && dimensions[0] == -1,
-    "Expected a float32 [N, P] input with dynamic rows and a known feature count.");
+    dimensions[1] <= INT_MAX && (dimensions[0] == -1 || dimensions[0] > 0),
+    "Expected a float32 [N, P] input with a dynamic or positive batch size and a known feature count.");
   return static_cast<int>(dimensions[1]);
 }
 int mode_code(const std::string& mode) {
@@ -209,8 +216,13 @@ std::unique_ptr<Session> decode_model(const uint8_t* data, size_t size) {
       else if (field.tag == ONNX_NODE_OUTPUT) sigmoid_outputs.push_back(text(field));
       else if (field.tag == ONNX_NODE_OP_TYPE) sigmoid_operation = text(field);
       else if (field.tag == ONNX_NODE_DOMAIN) sigmoid_domain = text(field);
-      else require(field.tag == ONNX_NODE_NAME || field.tag == 6,
-        "Unsupported trailing graph operator field.");
+      else if (field.tag == ONNX_NODE_ATTRIBUTE) {
+        throw std::runtime_error("Sigmoid does not support ONNX attributes.");
+      } else {
+        require(field.tag == ONNX_NODE_NAME || field.tag == ONNX_NODE_DOC_STRING ||
+          field.tag == ONNX_NODE_OVERLOAD || field.tag == ONNX_NODE_METADATA_PROPS,
+          "Unsupported trailing graph operator field.");
+      }
     }
     require(!classifier && sigmoid_operation == "Sigmoid" && sigmoid_domain.empty() &&
       sigmoid_inputs == session->output_names && sigmoid_outputs == graph_outputs &&
@@ -292,7 +304,8 @@ std::unique_ptr<Session> decode_model(const uint8_t* data, size_t size) {
     }
     bool label = classifier && output == 0;
     int expected_type = label ? (attributes.count("classlabels_strings") ? 8 : 7) : 1;
-    require(element_type == expected_type && !dimensions.empty() && dimensions[0] == -1 &&
+    require(element_type == expected_type && !dimensions.empty() &&
+      (dimensions[0] == -1 || dimensions[0] > 0) &&
       (label ? dimensions.size() == 1 :
         (dimensions.size() == 2 && dimensions[1] == session->num_targets)),
       "ONNX output schema does not match the tree operator.");
@@ -324,6 +337,15 @@ std::unique_ptr<Session> decode_model(const uint8_t* data, size_t size) {
     feature_ids.size() == count && values.size() == count && modes.size() == count &&
     true_ids.size() == count && false_ids.size() == count && missing.size() == count,
     "ONNX node attribute arrays have inconsistent lengths.");
+  // Optional hit rates are graph metadata with one finite float per node.
+  if (auto found = attributes.find("nodes_hitrates"); found != attributes.end()) {
+    const auto& hitrates = found->second;
+    require(hitrates.type == 6, "ONNX nodes_hitrates must have type FLOATS.");
+    require(hitrates.floats.size() == count, "Invalid ONNX nodes_hitrates length.");
+    require(std::all_of(hitrates.floats.begin(), hitrates.floats.end(),
+      [](float value) { return std::isfinite(value); }), "Nonfinite ONNX nodes_hitrates.");
+  }
+
   std::map<std::pair<int64_t, int64_t>, int> positions;
   for (size_t index = 0; index < count; ++index) {
     require(positions.emplace(std::make_pair(tree_ids[index], node_ids[index]),

@@ -1,5 +1,5 @@
 # Deterministic native fixtures exercise the package even when xgboost is absent.
-fixture_model <- function(objective = "binary:logistic", base = 0.3) {
+fixture_model <- function(objective = "binary:logistic", base = 0.3, numRoots = NULL){
   tree <- list(
     tree_param = list(size_leaf_vector = "1"),
     left_children = list(1L, -1L, -1L),
@@ -9,6 +9,11 @@ fixture_model <- function(objective = "binary:logistic", base = 0.3) {
     default_left = list(TRUE, FALSE, FALSE),
     split_type = list(0L, 0L, 0L)
   )
+  # Omit the field by default to reflect current XGBoost model JSON
+  if(!is.null(numRoots)){
+    tree$tree_param$num_roots <- numRoots
+  }
+
   learner <- list(
     objective = list(name = objective),
     learner_model_param = list(num_class = "0", num_target = "1"),

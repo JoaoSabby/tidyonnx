@@ -104,8 +104,9 @@ tree evaluator, a C++17 cpp11 ownership bridge, and Nanopb wire encoding/decodin
 It provides CPU inference, not GPU execution or a general neural-network runtime.
 
 External ONNX loading accepts one numerical `ai.onnx.ml` TreeEnsembleClassifier
-or TreeEnsembleRegressor node, optionally followed by a standard Sigmoid for regression, one float32 input of shape `[N, P]` with dynamic
-rows and known width, SUM aggregation, and supported numerical comparisons.
+or TreeEnsembleRegressor node, optionally followed by a standard Sigmoid for
+regression, one float32 input of shape `[N, P]` with known width, SUM aggregation,
+and supported numerical comparisons. Batch dimensions can be dynamic or positive.
 IR versions 3 through 10 and ML opsets 1 through 3 are accepted within that
 subset. Single-score binary classifiers, tensor-valued attributes, nonzero
 two-class `base_values`, multi-output regression, ZipMap, preprocessing,
@@ -122,7 +123,7 @@ All public functions accept `params = list()`. Supported settings are:
 | ir_version | 8L | Model IR version written at conversion; 8–10 |
 | float_precision | "float32" | Only float32 serialization and comparisons |
 | embed_raw_bytes | TRUE | Controls embedding for file loads; in-memory objects always embed |
-| class_levels | NULL | Defaults to "0", "1", ... from model class count |
+| class_levels | NULL | Classifier labels. Defaults to "0", "1", ... from model class count |
 | execution_provider | "cpu" | CPU only |
 | intra_op_threads | 0L | Maximum OpenMP workers; zero detects physical cores |
 | inter_op_threads | 1L | Single graph node; other values rejected |

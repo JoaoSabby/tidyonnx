@@ -12,9 +12,9 @@ License: MIT + file LICENSE
 URL: https://github.com/JoaoSabby/tidyonnx
 BugReports: https://github.com/JoaoSabby/tidyonnx/issues
 Depends: R (>= 4.3.0)
-Imports: S7 (>= 0.2.0), tibble, jsonlite, parallel, stats
+Imports: S7 (>= 0.2.0), tibble, jsonlite, parallel, stats, stringr
 LinkingTo: cpp11
-Suggests: testthat (>= 3.0.0), xgboost (>= 1.7.0)
+Suggests: testthat (>= 3.2.0), xgboost (>= 1.7.0)
 Config/testthat/edition: 3
 Encoding: UTF-8
 SystemRequirements: C17 (USE_C17), C++17; OpenMP (optional)

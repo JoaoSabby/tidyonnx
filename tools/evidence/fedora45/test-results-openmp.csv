@@ -1,0 +1,32 @@
+"file","context","test","nb","failed","skipped","error","warning","user","system","real","passed"
+"test-graph-contract.R","graph-contract","external metadata-free and unpacked ONNX graphs load correctly",4,0,FALSE,FALSE,0,0.053,0,0.0579999999999999,4
+"test-graph-contract.R","graph-contract","invalid tree topology and feature indices fail before traversal",6,0,FALSE,FALSE,0,0.049,0,0.0490000000000002,6
+"test-graph-contract.R","graph-contract","unsupported graph operators cannot masquerade as trees",1,0,FALSE,FALSE,0,0.005,0,0.00500000000000012,1
+"test-graph-contract.R","graph-contract","logistic regression uses a portable explicit graph activation",2,0,FALSE,FALSE,0,0.0109999999999999,0,0.0129999999999999,2
+"test-graph-contract.R","graph-contract","optional node hit rates require one finite FLOATS value per node",5,0,FALSE,FALSE,0,0.017,0,0.018,5
+"test-graph-contract.R","graph-contract","trailing Sigmoid permits standard metadata but rejects attributes",2,0,FALSE,FALSE,0,0.00800000000000001,0.00399999999999999,0.0190000000000001,2
+"test-graph-contract.R","graph-contract","external batch shapes accept positive and unspecified dimensions",8,0,FALSE,FALSE,0,0.0389999999999999,0,0.0490000000000002,8
+"test-native-inference.R","native-inference","strict split boundaries and missing directions preserve the logistic model",8,0,FALSE,FALSE,0,0.024,0,0.036,8
+"test-native-inference.R","native-inference","matrix and data frame storage preserve integer missing values",6,0,FALSE,FALSE,0,0.0189999999999999,0,0.0350000000000001,6
+"test-native-inference.R","native-inference","regression returns numeric predictions and rejects classification types",3,0,FALSE,FALSE,0,0.0149999999999999,0,0.0190000000000001,3
+"test-native-inference.R","native-inference","thread settings preserve predictions without changing global runtime state",2,0,FALSE,FALSE,0,0.0169999999999999,0.002,0.00800000000000001,2
+"test-persistence.R","persistence","ONNX and RDS round trips restore native sessions",9,0,FALSE,FALSE,0,0.0249999999999999,0,0.034,9
+"test-persistence.R","persistence","file-backed persistence reports unavailable backing files",3,0,FALSE,FALSE,0,0.0149999999999999,0,0.0190000000000001,3
+"test-persistence.R","persistence","failed conversion leaves an existing destination unchanged",3,0,FALSE,FALSE,0,0.00700000000000012,0.003,0.01,3
+"test-persistence.R","persistence","inspection exposes actual metadata and capabilities",8,0,FALSE,FALSE,0,0.0190000000000001,0.003,0.0230000000000001,8
+"test-persistence.R","persistence","replacement publishes a new file on filesystems supporting atomic rename",3,0,FALSE,FALSE,0,0.00900000000000012,0,0.00800000000000001,3
+"test-validation.R","validation","input contracts fail before inference",13,0,FALSE,FALSE,0,0.0519999999999998,0,0.0549999999999999,13
+"test-validation.R","validation","unsupported tuning is rejected explicitly",14,0,FALSE,FALSE,0,0.083,0.001,0.0840000000000001,14
+"test-validation.R","validation","malformed protobuf and truncated models never publish a session",32,0,FALSE,FALSE,0,0.115,0,0.115,32
+"test-validation.R","validation","model and file contracts are validated",6,0,FALSE,FALSE,0,0.0209999999999999,0,0.0209999999999999,6
+"test-validation.R","validation","regression objectives reject supplied class levels",9,0,FALSE,FALSE,0,0.635,0.028,0.663,9
+"test-validation.R","validation","conversion reads native and string-encoded JSON base scores",3,0,FALSE,FALSE,0,0.597,0.004,0.149,3
+"test-validation.R","validation","legacy tree metadata must describe exactly one root",2,0,FALSE,FALSE,0,0.00800000000000001,0,0.00800000000000001,2
+"test-validation.R","validation","infinite predictors are rejected across worker partitions",3,0,FALSE,FALSE,0,0.089,0,0.0340000000000003,3
+"test-xgboost-equivalence.R","xgboost-equivalence","all six objectives match XGBoost with missing values and non-default intercepts",10,0,FALSE,FALSE,0,1.208,0.000999999999999987,0.271,10
+"test-xgboost-equivalence.R","xgboost-equivalence","binary base scores and parallel trees retain probabilities",3,0,FALSE,FALSE,0,0.244,0.001,0.0790000000000002,3
+"test-xgboost-equivalence.R","xgboost-equivalence","feature order and human-readable class labels survive round trips",5,0,FALSE,FALSE,0,0.398,0,0.0590000000000002,5
+"test-xgboost-equivalence.R","xgboost-equivalence","automatically estimated scalar or vector base scores are supported",1,0,FALSE,FALSE,0,0.0800000000000001,0,0.0190000000000001,1
+"test-xgboost-equivalence.R","xgboost-equivalence","all-positive binary trees have valid portable logistic scores",1,0,FALSE,FALSE,0,0.0700000000000003,0,0.012,1
+"test-xgboost-equivalence.R","xgboost-equivalence","two-class softmax preserves probabilities after symmetric score conversion",4,0,FALSE,FALSE,0,0.102,0,0.036,4
+"test-xgboost-equivalence.R","xgboost-equivalence","UTF-8 feature metadata survives conversion under the C locale",4,0,FALSE,FALSE,0,0.0780000000000003,0,0.0180000000000002,4

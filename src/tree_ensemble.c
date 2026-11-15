@@ -14,6 +14,43 @@ int tidyonnx_has_openmp(void) {
 #endif
 }
 
+/* Scan contiguous row ranges in each real column. NaN remains a missing value. */
+int tidyonnx_validate_columns(const TidyOnnxColumn* columns, size_t num_columns,
+    size_t num_rows, int threads) {
+  int valid = 1;
+#ifndef _OPENMP
+  (void)threads;
+#else
+#pragma omp parallel num_threads(threads) if(num_rows > 128 && threads > 1) reduction(&:valid)
+#endif
+  {
+    size_t worker = 0;
+    size_t workers = 1;
+#ifdef _OPENMP
+    worker = (size_t)omp_get_thread_num();
+    workers = (size_t)omp_get_num_threads();
+#endif
+    /* Use the actual team size so OpenMP limits cannot leave rows unchecked. */
+    size_t block = num_rows / workers;
+    size_t remainder = num_rows % workers;
+    size_t begin = worker * block + (worker < remainder ? worker : remainder);
+    size_t end = begin + block + (worker < remainder);
+
+    for (size_t column = 0; column < num_columns && valid; ++column) {
+      if (columns[column].integer) continue;
+      const double* values = columns[column].data;
+
+      for (size_t row = begin; row < end; ++row) {
+        if (isinf(values[row * columns[column].stride])) {
+          valid = 0;
+          break;
+        }
+      }
+    }
+  }
+  return valid;
+}
+
 /* Stable sigmoid preserves extreme margins and missing-value routing semantics. */
 static float logistic(float margin) {
   if (margin >= 0.0f) return 1.0f / (1.0f + expf(-margin));

@@ -246,6 +246,11 @@ class XgboostSerializer final : public Serializer {
     for (R_xlen_t tree_index = 0; tree_index < trees.size(); ++tree_index) {
       cpp11::list tree(trees[tree_index]);
       cpp11::list parameters = list_field(tree, "tree_param");
+
+      // The traversal begins at node zero and requires exactly one root.
+      SEXP num_roots = parameters["num_roots"];
+      require(Rf_isNull(num_roots) || integer_number(num_roots) == 1,
+        "Multi-root XGBoost trees are not supported.");
       require(integer_number(parameters["size_leaf_vector"]) <= 1,
         "Vector-leaf trees are not supported.");
       cpp11::list left = list_field(tree, "left_children");

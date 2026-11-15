@@ -56,3 +56,20 @@ test_that("inspection exposes actual metadata and capabilities", {
   expect_equal(info$engine$execution_provider, "cpu")
   expect_output(print(fixture_model()), "native C")
 })
+
+test_that("replacement publishes a new file on filesystems supporting atomic rename", {
+  skip_on_os("windows")
+  file <- tempfile(fileext = ".onnx")
+  oldLink <- tempfile(fileext = ".onnx")
+  on.exit(unlink(c(file, oldLink)), add = TRUE)
+
+  # A hard link continues to reference the old inode after a successful rename
+  sentinel <- as.raw(1:10)
+  writeBin(sentinel, file)
+  expect_true(file.link(file, oldLink))
+
+  model <- fixture_model()
+  onnx_save(model, file)
+  expect_identical(readBin(oldLink, "raw", length(sentinel)), sentinel)
+  expect_identical(onnx_load(file)@raw_bytes, model@raw_bytes)
+})

@@ -75,7 +75,7 @@ between 18 and 21. ML opset is always 3.}
 \item{\code{embed_raw_bytes = TRUE}}{Embed bytes when loading from disk.
 In-memory conversions always retain bytes.}
 \item{\code{class_levels = NULL}}{Optional character vector of unique class
-labels in target order. NULL derives labels from class count.}
+labels in target order for classification. NULL derives labels from class count.}
 \item{\code{execution_provider = "cpu"}}{Only CPU is supported.}
 \item{\code{intra_op_threads = 0L}}{Maximum workers, 0 to 1024. Zero requests
 the detected physical-core count, with a fallback to one. Small batches and
@@ -96,8 +96,10 @@ lazily. With \code{embed_raw_bytes = FALSE}, the original file must remain
 readable. A different file with the same schema can change restored predictions.
 
 External ONNX support is restricted to a single numerical TreeEnsemble node,
-optionally followed by a standard Sigmoid for regression, one float32 input of shape [N,P] with dynamic rows and known width, SUM
-aggregation, and NONE, LOGISTIC, or SOFTMAX transforms. Classifiers require
+optionally followed by a standard Sigmoid for regression, one float32 input
+of shape [N,P] with known width, SUM aggregation, and NONE, LOGISTIC, or
+SOFTMAX transforms. Input and output batch dimensions can be dynamic or
+positive. Classifiers require
 explicit per-class scores. Nonzero two-class base values, single-score binary
 classifiers, tensor attributes, initializers, ZipMap, preprocessing, and
 multi-output regression are rejected. Classifier conversion adds a constant

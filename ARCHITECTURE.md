@@ -62,7 +62,9 @@ Nodes and weights occupy contiguous vectors. Input handoff borrows existing R
 column buffers; R ALTREP data may materialize before worker threads start.
 Metadata, pointer tables, output, and per-thread score workspace still allocate.
 There are no R API calls, allocations, or C++ exceptions inside the worker region.
-OpenMP distributes independent rows with an explicit per-call worker limit.
+OpenMP distributes predictor validation and inference by row, using an explicit
+per-call worker limit. Validation checks every real input column for infinity
+and preserves NaN for the tree's missing-value branches.
 Tree accumulation order remains fixed. Traversal is branch-dependent and is
 not claimed to achieve vectorized tree walking.
 
