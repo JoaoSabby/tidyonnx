@@ -36,6 +36,13 @@ Prediction and ONNX loading do not require it. Installation performs no download
 Nanopb sources are included; neither a schema compiler nor an external inference
 library is required.
 
+On Unix-like systems, builds using the Intel `icx` or `icpx` driver compile and
+link this package with LTO disabled, including when the active R build profile
+supplies `-flto`. This avoids passing LLVM bitcode between different Intel
+compiler and linker releases. The R toolchain still supplies the OpenMP flags.
+Use `R CMD INSTALL --preclean` when reinstalling from a previously compiled
+source directory so that every object is rebuilt.
+
 ## Model coverage
 
 | XGBoost objective | ONNX operator | Prediction |

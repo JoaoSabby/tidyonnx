@@ -2,5 +2,15 @@ CXX_STD = CXX17
 PKG_CPPFLAGS = -I. -Inanopb -I../inst/include -DPB_FIELD_32BIT
 PKG_CFLAGS = $(SHLIB_OPENMP_CFLAGS)
 PKG_CXXFLAGS =
-PKG_LIBS = $(SHLIB_OPENMP_CFLAGS)
+PKG_LIBS = $(SHLIB_OPENMP_CFLAGS) $(TIDYONNX_INTEL_LTO_FLAGS)
 OBJECTS = cpp11.o bindings.o model.o onnx_parser.o tree_ensemble.o nanopb/pb_common.o nanopb/pb_decode.o nanopb/pb_encode.o serializers/xgb_serializer.o
+
+# Emit native objects with Intel LLVM so linking does not require matching
+# compiler and linker bitcode versions. Resolve the drivers after R has
+# loaded the site and user Makevars, including any ccache prefixes.
+TIDYONNX_INTEL_LTO_FLAGS = $(if $(filter icx %/icx icpx %/icpx,$(CC) $(CXX) $(SHLIB_LD)),-fno-lto)
+
+# Append after the configured language flags so an inherited -flto does
+# not take precedence over the package setting.
+$(OBJECTS): override ALL_CFLAGS += $(TIDYONNX_INTEL_LTO_FLAGS)
+$(OBJECTS): override ALL_CXXFLAGS += $(TIDYONNX_INTEL_LTO_FLAGS)

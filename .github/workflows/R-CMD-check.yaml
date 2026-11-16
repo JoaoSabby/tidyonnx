@@ -24,6 +24,29 @@ jobs:
         with:
           extra-packages: any::rcmdcheck, any::xgboost
           needs: check
+      - name: Check Intel LTO flag order
+        if: runner.os == 'Linux'
+        working-directory: src
+        shell: bash
+        run: |
+          profile=$(mktemp)
+          trap 'rm -f "$profile"' EXIT
+
+          # Reproduce the R profile's full LTO without executing Intel binaries.
+          cat > "$profile" <<'EOF'
+          CC17 = ccache /opt/intel/bin/icx -std=gnu17
+          CXX17 = ccache /opt/intel/bin/icpx
+          C17FLAGS = -O3 -flto=full
+          CXX17FLAGS = -O3 -flto=full
+          SHLIB_CXX17LDFLAGS = -shared -flto=full
+          SHLIB_OPENMP_CFLAGS = -qopenmp
+          EOF
+
+          commands=$(R_MAKEVARS_USER="$profile" R CMD SHLIB --use-C17 --dry-run onnx_parser.c bindings.cpp)
+          printf '%s\n' "$commands"
+          grep -E '/icx .* -qopenmp .* -flto=full +(-[^ ]+ +)*-fno-lto +(-[^ ]+ +)*-c onnx_parser\.c' <<< "$commands"
+          grep -E '/icpx .* -flto=full +(-[^ ]+ +)*-fno-lto +(-[^ ]+ +)*-c bindings\.cpp' <<< "$commands"
+          grep -E '/icpx .* -shared -flto=full .* -qopenmp -fno-lto' <<< "$commands"
       - uses: r-lib/actions/check-r-package@v2
         with:
           args: 'c("--no-manual")'
